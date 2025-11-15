@@ -15,11 +15,6 @@ const AssetSchema = new mongoose.Schema({
         type: String,
         required: false
     },
-    quantity: {
-        type: Number,
-        required: true,
-        default: 0
-    },
     storeindate: {
         type: Date,
         default: () => moment.tz('Asia/Kolkata').toDate()
@@ -32,6 +27,18 @@ const AssetSchema = new mongoose.Schema({
         type: Date,
         required: false
     },
+    purchaseDate: {
+        type: Date,
+        required: false
+    },
+    lastServiceDate: {
+        type: Date,
+        required: false
+    },
+    contractExpiryDate: {
+        type: Date,
+        required: false
+    },
     status: {
         type: String,
         required: true
@@ -39,6 +46,14 @@ const AssetSchema = new mongoose.Schema({
     location: {
         type: String,
         required: true
+    },
+    departmentId: {
+        type: String,
+        required: false
+    },
+    departmentName: {
+        type: String,
+        required: false
     }
 
 },

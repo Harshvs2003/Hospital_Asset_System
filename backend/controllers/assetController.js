@@ -5,41 +5,53 @@ import moment from "moment-timezone";
 const formatIST = (date) =>
   date ? moment(date).tz("Asia/Kolkata").format("YYYY-MM-DD HH:mm:ss") : null;
 
+// Helper to generate 3-letter code from any string
+const getThreeLetterCode = (str) => {
+  if (!str) return "XXX";
+  const cleaned = str.trim().toUpperCase();
+  // Try to get meaningful abbreviation by taking first letter and consonants
+  let code = cleaned.charAt(0);
+  for (let i = 1; i < cleaned.length && code.length < 3; i++) {
+    const char = cleaned.charAt(i);
+    // Skip vowels (except if we need them for length)
+    if (!'AEIOU'.includes(char)) {
+      code += char;
+    }
+  }
+  // Pad with first letters if needed
+  while (code.length < 3) {
+    code += cleaned.charAt(code.length % cleaned.length);
+  }
+  return code.slice(0, 3);
+};
+
 // POST: Add Asset
 export const addAsset = async (req, res) => {
   try {
-    const { category, subcategory } = req.body;
+    const { subcategory, departmentName } = req.body;
 
-    const categoryMap = {
-      Furniture: "F",
-      Beds: "B",
-      Machines: "M",
-      Electrical: "E",
-    };
-    const subcategoryMap = {
-      Table: "TA",
-      Chair: "CH",
-      Light: "LT",
-      "ICU Bed": "IC",
-      ECG: "EC",
-    };
+    // Get 3-letter codes from department name and equipment/subcategory
+    const deptCode = getThreeLetterCode(departmentName || "GEN");
+    const equipCode = getThreeLetterCode(subcategory || "OTH");
 
-    const catCode = categoryMap[category] || "X";
-    const subCode =
-      subcategoryMap[subcategory] ||
-      (subcategory ? subcategory.slice(0, 2).toUpperCase() : "XX");
-
-    const last = await Asset.findOne({ category, subcategory })
+    // Find the last asset with same department and equipment to increment number
+    const last = await Asset.findOne({ 
+      departmentName,
+      subcategory
+    })
       .sort({ createdAt: -1 })
       .lean();
+    
     let nextNumber = 1;
 
     if (last?.assetId) {
+      // Extract the last 4 digits from assetId (NHSS + DEPTCODE + EQUIPCODE + NUMBER)
       const lastNum = parseInt(last.assetId.slice(-4), 10);
       if (!Number.isNaN(lastNum)) nextNumber = lastNum + 1;
     }
 
-    const newAssetId = `NH${catCode}${subCode}${String(nextNumber).padStart(
+    // New format: NHSS + DEPTCODE (3) + EQUIPCODE (3) + NUMBER (4 digits, zero-padded)
+    const newAssetId = `NHSS${deptCode}${equipCode}${String(nextNumber).padStart(
       4,
       "0"
     )}`;
@@ -55,8 +67,13 @@ export const addAsset = async (req, res) => {
       ...newAsset.toObject(),
       storeindate: formatIST(newAsset.storeindate),
       installdate: formatIST(newAsset.installdate),
+      purchaseDate: formatIST(newAsset.purchaseDate),
+      lastServiceDate: formatIST(newAsset.lastServiceDate),
+      contractExpiryDate: formatIST(newAsset.contractExpiryDate),
       createdAt: formatIST(newAsset.createdAt),
       updatedAt: formatIST(newAsset.updatedAt),
+      departmentId: newAsset.departmentId,
+      departmentName: newAsset.departmentName,
     };
 
     res.status(201).json(response);
@@ -74,8 +91,13 @@ export const getAllAssets = async (req, res) => {
       ...asset.toObject(),
       storeindate: formatIST(asset.storeindate),
       installdate: formatIST(asset.installdate),
+      purchaseDate: formatIST(asset.purchaseDate),
+      lastServiceDate: formatIST(asset.lastServiceDate),
+      contractExpiryDate: formatIST(asset.contractExpiryDate),
       createdAt: formatIST(asset.createdAt),
       updatedAt: formatIST(asset.updatedAt),
+      departmentId: asset.departmentId,
+      departmentName: asset.departmentName,
     }));
     res.status(200).json(assetsWithIST);
   } catch (error) {
@@ -115,8 +137,13 @@ export const getAssetByCustomId = async (req, res) => {
       ...asset.toObject(),
       storeindate: formatIST(asset.storeindate),
       installdate: formatIST(asset.installdate),
+      purchaseDate: formatIST(asset.purchaseDate),
+      lastServiceDate: formatIST(asset.lastServiceDate),
+      contractExpiryDate: formatIST(asset.contractExpiryDate),
       createdAt: formatIST(asset.createdAt),
       updatedAt: formatIST(asset.updatedAt),
+      departmentId: asset.departmentId,
+      departmentName: asset.departmentName,
     };
 
     res.status(200).json(response);
@@ -136,8 +163,13 @@ export const getAssetById = async (req, res) => {
       ...asset.toObject(),
       storeindate: formatIST(asset.storeindate),
       installdate: formatIST(asset.installdate),
+      purchaseDate: formatIST(asset.purchaseDate),
+      lastServiceDate: formatIST(asset.lastServiceDate),
+      contractExpiryDate: formatIST(asset.contractExpiryDate),
       createdAt: formatIST(asset.createdAt),
       updatedAt: formatIST(asset.updatedAt),
+      departmentId: asset.departmentId,
+      departmentName: asset.departmentName,
     };
 
     res.status(200).json(response);
