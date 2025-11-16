@@ -1,20 +1,14 @@
 import React from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, MapPin, Calendar, DollarSign, QrCode } from "lucide-react";
+import { generateQRCodeURL } from "../utils/qrcode";
+
 
 /**
  * Local fallback QR generator helper (used if ../utils/qrcode is not present).
  * It returns a public QR image URL from qrserver; adjust the target URL or API as needed.
  */
-const generateQRCodeURL = (assetId: string) => {
-  const payload = assetId || "unknown";
-  const origin =
-    typeof window !== "undefined" && window.location && window.location.origin
-      ? window.location.origin
-      : "https://example.com";
-  const target = `${origin}/asset/${encodeURIComponent(payload)}`;
-  return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(target)}`;
-};
+// 
 
 type Asset = {
   _id?: string;
