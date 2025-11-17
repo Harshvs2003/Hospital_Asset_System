@@ -2,8 +2,6 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { UserPlus, AlertCircle, Loader } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
-
 
 const Register: React.FC = () => {
   const [name, setName] = useState("");
@@ -39,7 +37,7 @@ const Register: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/api/auth/register`, {
+      const response = await fetch("http://localhost:5000/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

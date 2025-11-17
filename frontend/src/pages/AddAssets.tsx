@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+
 interface AssetFormData {
   name: string;
   category: string;
@@ -52,7 +52,7 @@ const AddAssetsPage: React.FC = () => {
     setMessage("");
 
     try {
-      const response = await fetch(`${API_BASE}/api/assets`, {
+      const response = await fetch("http://localhost:5000/api/assets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

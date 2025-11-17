@@ -1,8 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, Search, Funnel } from "lucide-react";
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
-
 
 type Asset = {
   _id?: string;
@@ -32,7 +30,7 @@ const AssetsPage: React.FC = () => {
 
   React.useEffect(() => {
     setLoading(true);
-    fetch(`${API_BASE}/api/assets`)
+    fetch("http://localhost:5000/api/assets")
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
