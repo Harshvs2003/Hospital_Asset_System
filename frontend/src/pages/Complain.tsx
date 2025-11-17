@@ -1,5 +1,7 @@
 import React from "react";
 import { useLocation } from "react-router-dom";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+
 
 type Asset = {
   _id?: string;
@@ -21,7 +23,7 @@ const ComplainPage: React.FC = () => {
   React.useEffect(() => {
     // fetch assets for selection
     setLoading(true);
-    fetch("http://localhost:5000/api/assets")
+    fetch(`${API_BASE}/api/assets`)
       .then((res) => res.json())
       .then((data) => {
         setAssets(data || []);
@@ -53,7 +55,7 @@ const ComplainPage: React.FC = () => {
     };
 
     setLoading(true);
-    fetch("http://localhost:5000/api/complaints", {
+    fetch(`${API_BASE}/api/complaints`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

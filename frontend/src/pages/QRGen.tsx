@@ -3,6 +3,8 @@ import React from "react";
 import { Search, Download, Printer, CheckSquare, Square } from "lucide-react";
 import { generateQRCodeURL } from "../utils/qrcode.ts"; // optional import if you have it
 // If you don't have ../utils/qrcode, the local helper below will be used.
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+
 
 
 type AssetMinimal = {
@@ -38,10 +40,10 @@ const QRGenPage: React.FC = () => {
     setLoading(true);
     setActionMessage(null);
     try {
-      let res = await fetch(`/api/assets/recent`);
+      let res = await fetch(`${API_BASE}/api/assets/recent`);
       if (!res.ok) {
         // fallback: get latest 100 and filter client-side
-        res = await fetch(`/api/assets?per=100&sort=createdAt_desc`);
+        res = await fetch(`${API_BASE}/api/assets?per=100&sort=createdAt_desc`);
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -68,7 +70,7 @@ const QRGenPage: React.FC = () => {
     }
     setFetchingSearch(true);
     try {
-      const res = await fetch(`/api/assets?search=${encodeURIComponent(q)}&per=20`);
+      const res = await fetch(`${API_BASE}/api/assets?search=${encodeURIComponent(q)}&per=20`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setSearchResults(Array.isArray(data) ? data : []);
@@ -189,7 +191,7 @@ const QRGenPage: React.FC = () => {
       // parallel but limited
       await Promise.all(
         ids.map((id) =>
-          fetch(`http://localhost:5000/api/assets/byAssetId/${id}`, {
+          fetch(`${API_BASE}/api/assets/byAssetId/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ qrGenerated: true }),
