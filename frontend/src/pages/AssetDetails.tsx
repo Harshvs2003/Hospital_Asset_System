@@ -2,7 +2,6 @@ import React from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, MapPin, Calendar, DollarSign, QrCode } from "lucide-react";
 import { generateQRCodeURL } from "../utils/qrcode";
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5173";
 
 
 /**
@@ -80,7 +79,7 @@ const AssetDetails: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/assets/byAssetId/${assetId}`);
+      const res = await fetch(`http://localhost:5000/api/assets/byAssetId/${assetId}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setAsset(data);
@@ -96,7 +95,7 @@ const AssetDetails: React.FC = () => {
     if (!assetId) return;
     setComplaintsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/complaints?assetId=${assetId}`);
+      const res = await fetch(`http://localhost:5000/api/complaints?assetId=${assetId}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setComplaints(Array.isArray(data) ? data : []);
@@ -233,7 +232,7 @@ const AssetDetails: React.FC = () => {
     setActionLoading(true);
     setActionMessage(null);
     try {
-      const res = await fetch(`${API_BASE}/api/assets/${asset._id}`, {
+      const res = await fetch(`http://localhost:5000/api/assets/${asset._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),

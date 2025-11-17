@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { UserPlus, AlertCircle, Loader } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5173";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
 
 const Register: React.FC = () => {

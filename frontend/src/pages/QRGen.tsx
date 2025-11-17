@@ -3,7 +3,7 @@ import React from "react";
 import { Search, Download, Printer, CheckSquare, Square } from "lucide-react";
 import { generateQRCodeURL } from "../utils/qrcode.ts"; // optional import if you have it
 // If you don't have ../utils/qrcode, the local helper below will be used.
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5173";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
 
 
