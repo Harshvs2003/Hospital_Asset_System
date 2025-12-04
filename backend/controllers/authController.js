@@ -12,13 +12,14 @@ const sendRefreshCookie = (res, token) => {
   const cookieName = process.env.COOKIE_NAME || "rf_token";
   const isProd = process.env.NODE_ENV === "production";
 
-  // httpOnly, secure in prod, sameSite lax to allow navigation from QR scanner
+  // For cross-site deployments (frontend != backend) you need sameSite: "none" and secure: true in production.
+  // For local/dev use lax to allow easier testing.
   res.cookie(cookieName, token, {
     httpOnly: true,
     secure: isProd, // true in production (requires HTTPS)
-    sameSite: "lax",
-    path: "/api/auth", // only send cookie to auth endpoints (optional)
-    maxAge: 1000 * 60 * 60 * 24 * 30, // fallback 30 days
+    sameSite: isProd ? "none" : "lax",
+    path: "/api/auth", // cookie sent only to auth endpoints (adjust if needed)
+    maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
   });
 };
 
@@ -99,7 +100,7 @@ export const login = async (req, res) => {
 
 export const refreshToken = async (req, res) => {
   try {
-    const cookieName = process.env.COOKIE_NAME || "session_token";
+    const cookieName = process.env.COOKIE_NAME || "rf_token";
     const token = req.cookies?.[cookieName];
     if (!token) return res.status(401).json({ message: "No refresh token" });
 
@@ -107,16 +108,31 @@ export const refreshToken = async (req, res) => {
     try {
       payload = verifyRefreshToken(token); // will throw if invalid/expired
     } catch (err) {
+      // clear cookie if invalid
+      res.clearCookie(cookieName, {
+        path: "/api/auth",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      });
       return res.status(401).json({ message: "Invalid refresh token" });
     }
 
     const user = await User.findById(payload.userId);
-    if (!user) return res.status(401).json({ message: "User not found" });
+    if (!user) {
+      res.clearCookie(cookieName, { path: "/api/auth" });
+      return res.status(401).json({ message: "User not found" });
+    }
 
     // ensure token jti matches stored jti (rotation single-session)
     if (!user.refreshTokenId || user.refreshTokenId !== payload.jti) {
       // possible reuse or logout — reject and clear cookie
-      res.clearCookie(cookieName, { path: "/api/auth" });
+      res.clearCookie(cookieName, {
+        path: "/api/auth",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      });
       return res.status(401).json({ message: "Refresh token not recognized" });
     }
 
@@ -160,12 +176,17 @@ export const logout = async (req, res) => {
           await user.save();
         }
       } catch (err) {
-        // ignore
+        // ignore verification errors
       }
     }
 
-    // clear cookie on client
-    res.clearCookie(cookieName, { path: "/api/auth" });
+    // clear cookie on client (match sameSite/secure/path options)
+    res.clearCookie(cookieName, {
+      path: "/api/auth",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    });
     return res.json({ message: "Logged out" });
   } catch (error) {
     console.error("Logout error:", error);
@@ -177,5 +198,12 @@ export const logout = async (req, res) => {
 export const me = async (req, res) => {
   // req.user is set by authMiddleware.protect
   if (!req.user) return res.status(401).json({ message: "Not authenticated" });
-  res.json({ id: req.user.userId, role: req.user.role });
+
+  // Return safe user info (expand if you need more)
+  res.json({
+    id: req.user.userId,
+    role: req.user.role,
+    name: req.user.name || undefined,
+    email: req.user.email || undefined,
+  });
 };
