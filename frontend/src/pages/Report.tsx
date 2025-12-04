@@ -79,18 +79,13 @@ const ReportPage: React.FC = () => {
 
     return assets.filter((a) => {
       const created = a.createdAt ? new Date(a.createdAt) : null;
-
       if (categoryFilter !== "All" && (a.category || "") !== categoryFilter)
         return false;
-
       if (from && created && created < from) return false;
-
       // include full "to" day
       if (to && created && created > new Date(to.getTime() + 86400000))
         return false;
-
       if ((from || to) && !created) return false;
-
       return true;
     }); 
   }, [assets, categoryFilter, fromDate, toDate]);
