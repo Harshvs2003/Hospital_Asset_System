@@ -1,14 +1,9 @@
+// src/pages/AssetDetails.tsx
 import React from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, MapPin, Calendar, DollarSign, QrCode } from "lucide-react";
 import { generateQRCodeURL } from "../utils/qrcode";
-
-
-/**
- * Local fallback QR generator helper (used if ../utils/qrcode is not present).
- * It returns a public QR image URL from qrserver; adjust the target URL or API as needed.
- */
-// 
+import api, { get } from "../lib/api"; // <-- uses centralized api helpers
 
 type Asset = {
   _id?: string;
@@ -79,9 +74,8 @@ const AssetDetails: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`http://localhost:5000/api/assets/byAssetId/${assetId}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      // use get helper -> hits `${API_BASE}/api/assets/byAssetId/${assetId}`
+      const data = await get(`/assets/byAssetId/${assetId}`);
       setAsset(data);
     } catch (err) {
       console.error("Failed to load asset:", err);
@@ -95,9 +89,8 @@ const AssetDetails: React.FC = () => {
     if (!assetId) return;
     setComplaintsLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/complaints?assetId=${assetId}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      // pass query string directly
+      const data = await get(`/complaints?assetId=${encodeURIComponent(String(assetId))}`);
       setComplaints(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to load complaints:", err);
@@ -232,15 +225,8 @@ const AssetDetails: React.FC = () => {
     setActionLoading(true);
     setActionMessage(null);
     try {
-      const res = await fetch(`http://localhost:5000/api/assets/${asset._id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch),
-      });
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(`HTTP ${res.status} ${txt}`);
-      }
+      // use axios instance directly for PATCH
+      await api.patch(`/assets/${asset._id}`, patch);
       await fetchAsset();
       setActionMessage("Updated successfully");
     } catch (err) {

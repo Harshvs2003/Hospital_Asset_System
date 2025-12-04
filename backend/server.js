@@ -10,20 +10,27 @@ dotenv.config();
 const app = express();
 connectDB();
 
-
 app.use(express.json());
 app.use(cookieParser());
 import cors from "cors";
 // Allow common dev origins (Vite default 5173 and CRA default 3000).
 const DEFAULT_ORIGINS = ["http://localhost:5000", "http://localhost:5173"];
 const FRONTEND = process.env.FRONTEND_ORIGIN;
+const allowedOrigins = FRONTEND
+  ? [FRONTEND, ...DEFAULT_ORIGINS]
+  : DEFAULT_ORIGINS;
+
 app.use(
   cors({
-    origin: FRONTEND ? FRONTEND : DEFAULT_ORIGINS,
+    origin: function (origin, callback) {
+      // allow requests with no origin like mobile apps or curl
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+      return callback(new Error("CORS policy: origin not allowed"), false);
+    },
     credentials: true,
   })
 );
-
 
 // Mount asset routes
 app.use("/api/auth", authRoutes);
@@ -35,7 +42,6 @@ app.get("/", (req, res) => {
 });
 
 const port = process.env.PORT || 5000;
-
 
 app.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
