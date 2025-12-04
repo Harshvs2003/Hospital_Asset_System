@@ -1,4 +1,6 @@
+// src/pages/AddAssetsPage.tsx
 import React, { useState } from "react";
+import { post } from "../lib/api"; // adjust path if your api is in a different folder
 
 interface AssetFormData {
   name: string;
@@ -14,20 +16,21 @@ interface AssetFormData {
   departmentName?: string;
 }
 
-const AddAssetsPage: React.FC = () => {
-  const [formData, setFormData] = useState<AssetFormData>({
-    name: "",
-    category: "",
-    subcategory: "",
-    status: "Available",
-    location: "",
-    purchaseDate: "",
-    servicedate: "",
-    contractExpiryDate: "",
-    departmentId: "",
-    departmentName: "",
-  });
+const initialForm: AssetFormData = {
+  name: "",
+  category: "",
+  subcategory: "",
+  status: "Available",
+  location: "",
+  purchaseDate: "",
+  servicedate: "",
+  contractExpiryDate: "",
+  departmentId: "",
+  departmentName: "",
+};
 
+const AddAssetsPage: React.FC = () => {
+  const [formData, setFormData] = useState<AssetFormData>(initialForm);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -52,33 +55,19 @@ const AddAssetsPage: React.FC = () => {
     setMessage("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/assets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      // use post helper; this hits `${API_BASE}/api/assets`
+      const data = await post("/assets", formData);
 
-      if (response.ok) {
-        const data = await response.json();
-        setMessage(`✅ Asset added successfully! ID: ${data.assetId}`);
-        setFormData({
-          name: "",
-          category: "",
-          subcategory: "",
-          status: "Available",
-          location: "",
-          purchaseDate: "",
-          servicedate: "",
-          contractExpiryDate: "",
-          departmentId: "",
-          departmentName: "",
-        });
-      } else {
-        const error = await response.json();
-        setMessage(`❌ Error: ${error.message}`);
-      }
-    } catch (error) {
-      setMessage(`❌ Error: ${(error as Error).message}`);
+      // expecting backend to return something like { assetId: '...' } (keep as before)
+      setMessage(`✅ Asset added successfully! ID: ${data.assetId ?? data.id ?? "N/A"}`);
+      setFormData(initialForm);
+    } catch (err: any) {
+      // axios error normalization
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to add asset. Try again.";
+      setMessage(`❌ Error: ${msg}`);
     } finally {
       setLoading(false);
     }
@@ -195,6 +184,7 @@ const AddAssetsPage: React.FC = () => {
             <input
               type="date"
               name="installdate"
+              value={formData.installdate ?? ""}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -206,7 +196,7 @@ const AddAssetsPage: React.FC = () => {
             <input
               type="date"
               name="purchaseDate"
-              value={formData.purchaseDate}
+              value={formData.purchaseDate ?? ""}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -218,7 +208,7 @@ const AddAssetsPage: React.FC = () => {
             <input
               type="date"
               name="servicedate"
-              value={formData.servicedate}
+              value={formData.servicedate ?? ""}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -230,7 +220,7 @@ const AddAssetsPage: React.FC = () => {
             <input
               type="date"
               name="contractExpiryDate"
-              value={formData.contractExpiryDate}
+              value={formData.contractExpiryDate ?? ""}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />

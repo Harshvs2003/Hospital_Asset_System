@@ -1,3 +1,4 @@
+// src/pages/Dashboard.tsx
 import React, { useState } from "react";
 import { BedDouble, Stethoscope, Monitor, Pill } from "lucide-react";
 
@@ -6,11 +7,10 @@ interface CategoryData {
   icon: React.ElementType;
   total: number;
   stats: { label: string; count: number }[];
-  // independent back content
   backInfo?: string;
 }
 
-const dashboard: React.FC = () => {
+const Dashboard: React.FC = () => {
   const [flipped, setFlipped] = useState<Record<string, boolean>>({});
 
   const categories: CategoryData[] = [
@@ -64,32 +64,41 @@ const dashboard: React.FC = () => {
     setFlipped((prev) => ({ ...prev, [name]: !prev[name] }));
   };
 
+  const handleKey = (e: React.KeyboardEvent, name: string) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggleFlip(name);
+    }
+  };
+
   return (
     <div className="p-6 min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-200">
-      <h1 className="text-3xl font-semibold mb-8 text-gray-800">
-        🏥 Hospital Inventory Dashboard
-      </h1>
+      <h1 className="text-3xl font-semibold mb-8 text-gray-800">🏥 Hospital Inventory Dashboard</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {categories.map(({ name, icon: Icon, total, stats, backInfo }) => (
           <div
             key={name}
-            className="relative w-full h-48 cursor-pointer card"
+            role="button"
+            tabIndex={0}
             onClick={() => toggleFlip(name)}
+            onKeyDown={(e) => handleKey(e, name)}
+            className="relative w-full h-48 cursor-pointer"
+            aria-pressed={!!flipped[name]}
+            aria-label={`${name} card`}
           >
-            <div className={`card-inner ${flipped[name] ? 'is-flipped' : ''}`}>
+            <div className={`relative w-full h-full transition-transform duration-500 ${flipped[name] ? "transform rotate-y-180" : ""}`}>
               {/* Front Side */}
-              <div className="card-face card-front bg-white rounded-2xl shadow-lg flex flex-col justify-center items-center hover:shadow-xl transition">
+              <div className={`absolute inset-0 backface-hidden bg-white rounded-2xl shadow-lg flex flex-col justify-center items-center hover:shadow-xl transition p-4`}>
                 <Icon className="text-blue-500 mb-3" size={36} />
                 <h2 className="text-lg font-semibold text-gray-700 mb-1">{name}</h2>
                 <p className="text-gray-600">Total: {total}</p>
                 <p className="text-xs text-gray-400 mt-2">(Click to view details)</p>
               </div>
 
-              {/* Back Side - independent content */}
-              <div className="card-face card-back bg-blue-600 text-white rounded-2xl shadow-lg flex flex-col justify-center items-center px-4">
+              {/* Back Side */}
+              <div className={`absolute inset-0 backface-hidden rotate-y-180 bg-blue-600 text-white rounded-2xl shadow-lg flex flex-col justify-center items-center px-4`}>
                 <h2 className="text-lg font-semibold mb-2">{name} Overview</h2>
-                {/* independent content, not a direct mirror of front */}
                 <p className="text-sm text-white/90 text-center mb-3">{backInfo}</p>
                 <div className="w-full">
                   <h3 className="text-sm font-medium mb-1">Quick Stats</h3>
@@ -109,6 +118,13 @@ const dashboard: React.FC = () => {
                 <p className="text-xs opacity-80 mt-3">(Click to flip back)</p>
               </div>
             </div>
+
+            {/* Small CSS fallback for 3D flip using inline style classes (Tailwind doesn't ship rotate-y by default).
+                If you want a perfect 3D flip, add the following CSS to your global stylesheet:
+                .backface-hidden { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+                .rotate-y-180 { transform: rotateY(180deg); }
+                .transform.rotate-y-180 { transform: rotateY(180deg); }
+            */}
           </div>
         ))}
       </div>
@@ -116,5 +132,4 @@ const dashboard: React.FC = () => {
   );
 };
 
-export default dashboard;
- 
+export default Dashboard;

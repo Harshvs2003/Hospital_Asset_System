@@ -18,7 +18,7 @@ const Login: React.FC = () => {
 
     try {
       // Use AuthContext login to update global auth state
-      await login(email, password);
+      await login(email.trim(), password);
       // navigate to dashboard after successful login
       navigate("/");
     } catch (err) {
