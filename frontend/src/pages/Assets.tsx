@@ -1,6 +1,8 @@
+// src/pages/AssetsPage.tsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, Search, Funnel } from "lucide-react";
+import { get } from "../lib/api"; // <- adjust path if needed
 
 type Asset = {
   _id?: string;
@@ -29,42 +31,59 @@ const AssetsPage: React.FC = () => {
   const navigate = useNavigate();
 
   React.useEffect(() => {
-    setLoading(true);
-    fetch("http://localhost:5000/api/assets")
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        setAssets(data || []);
-        setLoading(false);
-      })
-      .catch((err) => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await get("/assets"); // hits `${API_BASE}/api/assets`
+        if (!mounted) return;
+        setAssets(Array.isArray(data) ? data : []);
+      } catch (err) {
         console.error("Failed to fetch assets:", err);
+        if (!mounted) return;
         setError("Failed to load assets");
-        setLoading(false);
-      });
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  const categories = Array.from(new Set(assets.map((a) => a.category || "").filter(Boolean)));
-  const statuses = Array.from(new Set(assets.map((a) => a.status || "").filter(Boolean)));
-  const departments = Array.from(new Set(assets.map((a) => a.departmentName || "").filter(Boolean)));
+  const categories = React.useMemo(
+    () => Array.from(new Set(assets.map((a) => a.category || "").filter(Boolean))),
+    [assets]
+  );
+  const statuses = React.useMemo(
+    () => Array.from(new Set(assets.map((a) => a.status || "").filter(Boolean))),
+    [assets]
+  );
+  const departments = React.useMemo(
+    () => Array.from(new Set(assets.map((a) => a.departmentName || "").filter(Boolean))),
+    [assets]
+  );
 
-  const filteredByAll = assets.filter((a) => {
+  const filteredByAll = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    const matchesQuery =
-      !q ||
-      (a.assetId || "").toLowerCase().includes(q) ||
-      (a.name || "").toLowerCase().includes(q) ||
-      (a.category || "").toLowerCase().includes(q) ||
-      (a.location || "").toLowerCase().includes(q);
+    return assets.filter((a) => {
+      const matchesQuery =
+        !q ||
+        (a.assetId || "").toLowerCase().includes(q) ||
+        (a.name || "").toLowerCase().includes(q) ||
+        (a.category || "").toLowerCase().includes(q) ||
+        (a.location || "").toLowerCase().includes(q);
 
-    const matchesCategory = selectedCategory === "All" || (a.category || "") === selectedCategory;
-    const matchesStatus = selectedStatus === "All" || (a.status || "") === selectedStatus;
-    const matchesDepartment = selectedDepartment === "All" || (a.departmentName || "") === selectedDepartment;
+      const matchesCategory = selectedCategory === "All" || (a.category || "") === selectedCategory;
+      const matchesStatus = selectedStatus === "All" || (a.status || "") === selectedStatus;
+      const matchesDepartment = selectedDepartment === "All" || (a.departmentName || "") === selectedDepartment;
 
-    return matchesQuery && matchesCategory && matchesStatus && matchesDepartment;
-  });
+      return matchesQuery && matchesCategory && matchesStatus && matchesDepartment;
+    });
+  }, [assets, query, selectedCategory, selectedStatus, selectedDepartment]);
 
   const fmtNumber = (n: number) => n.toLocaleString();
 
@@ -87,7 +106,7 @@ const AssetsPage: React.FC = () => {
     }
   };
 
-  // Pagination state (UI-only, non-invasive)
+  // Pagination state (UI-only)
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 10;
   const totalPages = Math.max(1, Math.ceil(filteredByAll.length / itemsPerPage));
@@ -129,7 +148,10 @@ const AssetsPage: React.FC = () => {
               <Funnel className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <select
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
               >
                 <option value="All">Category</option>
@@ -145,7 +167,10 @@ const AssetsPage: React.FC = () => {
           <div>
             <select
               value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
+              onChange={(e) => {
+                setSelectedStatus(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
             >
               <option value="All">Status</option>
@@ -160,7 +185,10 @@ const AssetsPage: React.FC = () => {
           <div>
             <select
               value={selectedDepartment}
-              onChange={(e) => setSelectedDepartment(e.target.value)}
+              onChange={(e) => {
+                setSelectedDepartment(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
             >
               <option value="All">Department</option>
@@ -222,16 +250,16 @@ const AssetsPage: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{a.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{a.category}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {a.storeindate ? new Date(a.storeindate).toISOString().slice(0, 10) : '-'}
+                      {a.storeindate ? new Date(a.storeindate).toISOString().slice(0, 10) : "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{a.location}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(a.status)}`}>
-                        {a.status || 'Unknown'}
+                        {a.status || "Unknown"}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{a.assignedTo || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{a.departmentName || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{a.assignedTo || "-"}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{a.departmentName || "-"}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <button onClick={() => onViewAsset(a)} className="text-blue-600 hover:text-blue-800 flex items-center">
                         <Eye className="h-4 w-4 mr-1" />

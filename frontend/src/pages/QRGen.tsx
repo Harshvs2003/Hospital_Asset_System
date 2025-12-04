@@ -1,9 +1,8 @@
 // src/pages/qrgen.tsx
 import React from "react";
 import { Search, Download, Printer, CheckSquare, Square } from "lucide-react";
-import { generateQRCodeURL } from "../utils/qrcode.ts"; // optional import if you have it
-// If you don't have ../utils/qrcode, the local helper below will be used.
-
+import { generateQRCodeURL } from "../utils/qrcode"; // keep as-is
+import api, { get } from "../lib/api"; // <- uses central api helpers
 
 type AssetMinimal = {
   _id?: string;
@@ -29,25 +28,26 @@ const QRGenPage: React.FC = () => {
 
   React.useEffect(() => {
     if (mode === "recent") fetchRecentAssets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
-  // Fetch recent assets — backend SHOULD provide an endpoint to return new assets that don't have QR generated
-  // Try: GET /api/assets/recent
-  // Fallback: GET /api/assets?limit=50 and filter by qrGenerated:false or by createdAt recent
+  // Fetch recent assets — try dedicated endpoint, fallback to list and filter client-side
   const fetchRecentAssets = async () => {
     setLoading(true);
     setActionMessage(null);
     try {
-      let res = await fetch(`/api/assets/recent`);
-      if (!res.ok) {
-        // fallback: get latest 100 and filter client-side
-        res = await fetch(`/api/assets?per=100&sort=createdAt_desc`);
+      // try dedicated endpoint first
+      let arr: AssetMinimal[] = [];
+      try {
+        const data = await get("/assets/recent");
+        arr = Array.isArray(data) ? data : [];
+      } catch (err) {
+        // fallback: fetch latest and filter client-side
+        const data = await get("/assets?per=100&sort=createdAt_desc");
+        arr = Array.isArray(data) ? data : [];
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      // Expect objects with at least: _id, assetId, name, createdAt, qrGenerated?
-      const arr: AssetMinimal[] = Array.isArray(data) ? data : [];
-      // Filter to only those that are not qrGenerated if backend didn't do it
+
+      // Filter to only those that are not qrGenerated (backend may already do this)
       const filtered = arr.filter((a) => !a.qrGenerated);
       setRecentAssets(filtered);
       setSelectedIds({});
@@ -68,9 +68,7 @@ const QRGenPage: React.FC = () => {
     }
     setFetchingSearch(true);
     try {
-      const res = await fetch(`/api/assets?search=${encodeURIComponent(q)}&per=20`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await get(`/assets?search=${encodeURIComponent(q)}&per=20`);
       setSearchResults(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Search failed:", err);
@@ -99,7 +97,6 @@ const QRGenPage: React.FC = () => {
   // generate printable window that contains all selected QR images and auto-print (user can cancel)
   const openPrintView = async (assets: AssetMinimal[]) => {
     if (!assets.length) return setActionMessage("No assets selected");
-    // Build HTML with images referencing QR server (no need to fetch blobs)
     const htmlParts = assets.map(
       (a) => `
       <div style="display:inline-block;width:220px;padding:12px;text-align:center;box-sizing:border-box;border:1px solid #eee;margin:8px;">
@@ -138,7 +135,7 @@ const QRGenPage: React.FC = () => {
     win.document.close();
   };
 
-  // Download each QR image as PNG using the QR server URL
+  // Download each QR image as PNG using the QR server URL (keep using fetch to get blobs)
   const downloadPNGs = async (assets: AssetMinimal[]) => {
     if (!assets.length) return setActionMessage("No assets selected");
     setActionMessage(null);
@@ -170,7 +167,7 @@ const QRGenPage: React.FC = () => {
       }
       setActionMessage("Downloads started");
       // After downloads, mark assets as generated (if in recent mode)
-      const toPatch = assets.filter((x) => x._id).map((x) => x._id!) ;
+      const toPatch = assets.filter((x) => x._id).map((x) => x._id!);
       if (mode === "recent" && toPatch.length) await markAsGeneratedServerSide(toPatch);
     } catch (err) {
       console.error(err);
@@ -181,22 +178,21 @@ const QRGenPage: React.FC = () => {
     }
   };
 
-  // Mark assets as qrGenerated on the server (PATCH). Backend should support updating { qrGenerated: true }
-  // Endpoint used: PATCH /api/assets/:id with body { qrGenerated: true }
-  // If your backend uses a different field or route, change this.
+  // Mark assets as qrGenerated on the server (PATCH).
+  // Uses api.patch for consistency with central axios instance
   const markAsGeneratedServerSide = async (ids: string[]) => {
     try {
-      // parallel but limited
       await Promise.all(
         ids.map((id) =>
-          fetch(`http://localhost:5000/api/assets/byAssetId/${id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ qrGenerated: true }),
-          }).then((r) => {
-            if (!r.ok) console.warn("Failed to mark generated for", id);
-            return r;
-          })
+          api
+            .patch(`/assets/byAssetId/${encodeURIComponent(id)}`, { qrGenerated: true })
+            .then((r) => {
+              if (r.status >= 400) console.warn("Failed to mark generated for", id);
+              return r;
+            })
+            .catch((e) => {
+              console.warn("Failed to mark generated for", id, e);
+            })
         )
       );
       // refresh recent list
@@ -477,7 +473,6 @@ const QRGenPage: React.FC = () => {
       )}
     </div>
   );
-}
-
+};
 
 export default QRGenPage;

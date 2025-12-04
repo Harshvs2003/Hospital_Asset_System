@@ -1,5 +1,7 @@
+// src/pages/ComplainPage.tsx
 import React from "react";
 import { useLocation } from "react-router-dom";
+import { get, post } from "../lib/api"; // adjust path if needed
 
 type Asset = {
   _id?: string;
@@ -18,20 +20,28 @@ const ComplainPage: React.FC = () => {
   const [submitted, setSubmitted] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Load assets for selection
   React.useEffect(() => {
-    // fetch assets for selection
-    setLoading(true);
-    fetch("http://localhost:5000/api/assets")
-      .then((res) => res.json())
-      .then((data) => {
-        setAssets(data || []);
-        setLoading(false);
-      })
-      .catch((err) => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await get("/assets");
+        if (!mounted) return;
+        setAssets(Array.isArray(data) ? data : []);
+      } catch (err) {
         console.error("Failed to load assets:", err);
+        if (!mounted) return;
         setError("Failed to load assets");
-        setLoading(false);
-      });
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Preselect assetId from query param if provided (e.g., /complain?assetId=NH...)
@@ -42,44 +52,35 @@ const ComplainPage: React.FC = () => {
     if (aid) setSelectedAssetId(aid);
   }, [location.search]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
+    setLoading(true);
+    setError(null);
 
     const payload = {
       type: complaintType,
       description,
       assetId: selectedAssetId || null,
+      filedBy: filedBy || undefined,
     };
 
-    setLoading(true);
-    fetch("http://localhost:5000/api/complaints", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then(async (res) => {
-        setLoading(false);
-        if (!res.ok) {
-          const err = await res.text();
-          throw new Error(err || `HTTP ${res.status}`);
-        }
-        return res.json();
-      })
-      .then(() => {
-        setSubmitted(true);
-        setComplaintType("");
-        setDescription("");
-        setFiledBy("");
-        setSelectedAssetId("");
-        setError(null);
-      })
-      .catch((err) => {
-        console.error("Failed to submit complaint:", err);
-        setError("Failed to submit complaint. Please try again.");
-        setSubmitted(false);
-        setLoading(false);
-      });
+    try {
+      await post("/complaints", payload);
+      setSubmitted(true);
+      setComplaintType("");
+      setDescription("");
+      setFiledBy("");
+      setSelectedAssetId("");
+      setError(null);
+    } catch (err: any) {
+      console.error("Failed to submit complaint:", err);
+      const msg = err?.response?.data?.message || err?.message || "Failed to submit complaint. Please try again.";
+      setError(msg);
+      setSubmitted(false);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -150,13 +151,20 @@ const ComplainPage: React.FC = () => {
                 onChange={(e) => setFiledBy(e.target.value)}
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Describe your complaint in detail..."
+                placeholder="Your name"
               />
             </div>
 
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition">
-              Submit Complaint
-            </button>
+            <div>
+              {error && <div className="text-sm text-red-600 mb-2">{error}</div>}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition disabled:opacity-60"
+              >
+                {loading ? "Submitting..." : "Submit Complaint"}
+              </button>
+            </div>
           </form>
         )}
       </div>

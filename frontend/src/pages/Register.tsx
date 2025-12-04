@@ -1,7 +1,9 @@
+// src/pages/Register.tsx
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { UserPlus, AlertCircle, Loader } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { post } from "../lib/api";
 
 const Register: React.FC = () => {
   const [name, setName] = useState("");
@@ -37,23 +39,15 @@ const Register: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ name, email, password, role }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Registration failed");
-      }
+      // call centralized API helper (reads VITE_API_BASE)
+      await post("/auth/register", { name, email: email.trim(), password, role });
 
       // Auto-login after successful registration
-      await login(email, password);
+      await login(email.trim(), password);
       navigate("/");
-    } catch (err) {
-      setError((err as Error).message || "An error occurred");
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || "Registration failed";
+      setError(String(msg));
       console.error("Register error:", err);
     } finally {
       setLoading(false);
@@ -114,6 +108,7 @@ const Register: React.FC = () => {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
+              autoComplete="email"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
             />
           </div>

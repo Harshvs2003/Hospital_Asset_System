@@ -1,4 +1,6 @@
+// src/contexts/AuthContext.tsx
 import React, { createContext, useState, useContext, useEffect } from "react";
+import { post } from "../lib/api"; // adjust path if your api is elsewhere
 
 interface User {
   id: string;
@@ -37,43 +39,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await fetch("http://localhost:5000/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ email, password }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Login failed");
+    setIsLoading(true);
+    try {
+      // post helper hits `${API_BASE}/api/auth/login`
+      const data = await post("/auth/login", { email, password });
+      // expecting { accessToken, user }
+      localStorage.setItem("accessToken", data.accessToken);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      setUser(data.user);
+    } catch (err: any) {
+      // normalize error message
+      const msg =
+        err?.response?.data?.message || err?.message || "Login failed";
+      throw new Error(msg);
+    } finally {
+      setIsLoading(false);
     }
-
-    const data = await response.json();
-    localStorage.setItem("accessToken", data.accessToken);
-    localStorage.setItem("user", JSON.stringify(data.user));
-    setUser(data.user);
   };
 
   const logout = async () => {
+    setIsLoading(true);
     try {
-      const token = localStorage.getItem("accessToken");
-      if (token) {
-        await fetch("http://localhost:5000/api/auth/logout", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-        });
-      }
+      // post helper will include Authorization header automatically via interceptor
+      await post("/auth/logout", {});
     } catch (err) {
       console.error("Logout error:", err);
     } finally {
       localStorage.removeItem("accessToken");
       localStorage.removeItem("user");
       setUser(null);
+      setIsLoading(false);
     }
   };
 
