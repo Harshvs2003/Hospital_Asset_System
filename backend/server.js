@@ -37,49 +37,27 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// ========== CORS config (robust & env-driven) ==========
-const DEFAULT_ORIGINS = ["http://localhost:5173", "http://localhost:3000"];
+// CORS config
+const DEFAULT_ORIGINS = ["https://hospital-asset-system.vercel.app", "http://localhost:5173", "http://localhost:3000"];
+const FRONTEND = process.env.FRONTEND_ORIGIN;
+const allowedOrigins = FRONTEND ? [FRONTEND, ...DEFAULT_ORIGINS] : DEFAULT_ORIGINS;
 
-// Allow user to supply a comma-separated list of origins via env.
-// Example: FRONTEND_ORIGINS="https://app.vercel.app,https://admin.myapp.com"
-const rawFrontend = process.env.FRONTEND_ORIGINS || process.env.FRONTEND_ORIGIN || "";
-const frontendList = rawFrontend
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // allow requests with no origin (curl, mobile apps, Postman)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+      console.warn(`Blocked CORS origin: ${origin}`);
+      return callback(new Error("CORS policy: origin not allowed"), false);
+    },
+    credentials: true,
+    optionsSuccessStatus: 200,
+    exposedHeaders: ["Set-Cookie"],
+  })
+);
 
-// Build final allowed origins set (keeps defaults + any provided in env)
-const allowedOrigins = Array.from(new Set([...DEFAULT_ORIGINS, ...frontendList]));
-
-// Helpful debug output (remove or tone down in production if you want)
-console.log("CORS allowedOrigins:", allowedOrigins);
-
-// CORS options
-const corsOptions = {
-  origin: function (origin, callback) {
-    // allow requests with no origin (e.g., curl, mobile, server-to-server)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    // create an error and attach status for the error handler to use
-    const err = new Error(`CORS policy: origin not allowed — ${origin}`);
-    err.status = 403;
-    console.warn(`Blocked CORS origin: ${origin}`);
-    return callback(err, false);
-  },
-  credentials: true, // if you use cookies/auth
-  optionsSuccessStatus: 204,
-  exposedHeaders: ["Set-Cookie"],
-};
-
-// apply CORS and preflight handling
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // enable preflight for all routes
-
-// ========== Routes ==========
+// Mount routes
 app.use("/api/auth", authRoutes);
 app.use("/api/assets", assetRoutes);
 app.use("/api/complaints", complaintRoutes);
@@ -93,7 +71,6 @@ app.get("/", (req, res) => {
 });
 
 // global error handler (JSON response)
-// note: include `next` param so express treats this as an error handler
 app.use((err, _req, res, _next) => {
   console.error("Unhandled error:", err && err.stack ? err.stack : err);
   const status = err.status || 500;
