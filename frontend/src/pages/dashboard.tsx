@@ -104,105 +104,142 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  // Inline styles used to ensure correct 3D behavior without modifying Tailwind config
+  const rotatingContainerStyle: React.CSSProperties = {
+    transformStyle: "preserve-3d",
+    transition: "transform 0.6s",
+    perspective: "1000px",
+    height: "100%",
+    width: "100%",
+  };
+
+  const faceStyle: React.CSSProperties = {
+    position: "absolute",
+    inset: 0,
+    WebkitBackfaceVisibility: "hidden",
+    backfaceVisibility: "hidden",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: "1rem",
+    borderRadius: "1rem",
+  };
+
+  const backFacePreRotate: React.CSSProperties = {
+    transform: "rotateY(180deg)",
+  };
+
   return (
     <div className="p-6 min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-200">
       <h1 className="text-3xl font-semibold mb-8 text-gray-800">🏥 Hospital Inventory Dashboard</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {categories.map(({ name, icon: Icon, total, stats, detailedStats }) => (
-          <div
-            key={name}
-            role="button"
-            tabIndex={0}
-            onClick={() => toggleFlip(name)}
-            onKeyDown={(e) => handleKey(e, name)}
-            className="relative w-full h-52 cursor-pointer"
-            aria-pressed={!!flipped[name]}
-            aria-label={`${name} card`}
-          >
+        {categories.map(({ name, icon: Icon, total, stats, detailedStats }) => {
+          const isFlipped = !!flipped[name];
+          return (
             <div
-              className={`relative w-full h-full transition-transform duration-500 ${flipped[name] ? "transform rotate-y-180" : ""}`}
+              key={name}
+              role="button"
+              tabIndex={0}
+              onClick={() => toggleFlip(name)}
+              onKeyDown={(e) => handleKey(e, name)}
+              className="relative w-full h-52 cursor-pointer"
+              aria-pressed={isFlipped}
+              aria-label={`${name} card`}
             >
-              {/* Front Side */}
+              {/* Rotating wrapper */}
               <div
-                className="absolute inset-0 backface-hidden bg-white rounded-2xl shadow-lg flex flex-col justify-center items-center hover:shadow-xl transition p-4"
-                aria-hidden={!!flipped[name]}
+                style={{
+                  ...rotatingContainerStyle,
+                  transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
+                }}
               >
-                <Icon className="text-blue-500 mb-3" size={36} />
-                <h2 className="text-lg font-semibold text-gray-700 mb-1">{name}</h2>
-                <p className="text-gray-600">Total: {total}</p>
+                {/* Front */}
+                <div
+                  style={{
+                    ...faceStyle,
+                    background: "white",
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
+                    color: "#1f2937",
+                    zIndex: 2,
+                  }}
+                  aria-hidden={isFlipped}
+                >
+                  <Icon className="text-blue-500 mb-3" size={36} />
+                  <h2 className="text-lg font-semibold mb-1">{name}</h2>
+                  <p className="text-gray-600">Total: {total}</p>
 
-                {/* small summary */}
-                <div className="mt-3 w-full px-4">
-                  <ul className="text-sm text-gray-500 flex justify-between">
-                    {stats.map((s) => (
-                      <li key={s.label} className="text-center">
-                        <div className="font-semibold text-gray-700">{s.count}</div>
-                        <div className="text-xs">{s.label}</div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <p className="text-xs text-gray-400 mt-2">(Click to view detailed stats)</p>
-              </div>
-
-              {/* Back Side */}
-              <div
-                className="absolute inset-0 backface-hidden rotate-y-180 bg-blue-600 text-white rounded-2xl shadow-lg flex flex-col justify-between items-center px-4 py-5"
-                aria-hidden={!flipped[name]}
-              >
-                <div className="w-full text-center">
-                  <h2 className="text-lg font-semibold mb-1">{name} Details</h2>
-                  <p className="text-sm text-white/90 mb-3">Quick breakdown for {name.toLowerCase()}.</p>
-
-                  <div className="w-full bg-white/10 rounded p-3 text-sm">
-                    <ul className="space-y-2">
-                      {detailedStats.map((d) => (
-                        <li key={d.label} className="flex justify-between">
-                          <span>{d.label}</span>
-                          <span className="font-semibold">{d.count}</span>
+                  {/* small summary */}
+                  <div className="mt-3 w-full px-4">
+                    <ul className="text-sm text-gray-500 flex justify-between">
+                      {stats.map((s) => (
+                        <li key={s.label} className="text-center">
+                          <div className="font-semibold text-gray-700">{s.count}</div>
+                          <div className="text-xs">{s.label}</div>
                         </li>
                       ))}
                     </ul>
                   </div>
+
+                  <p className="text-xs text-gray-400 mt-2">(Click to view detailed stats)</p>
                 </div>
 
-                <div className="w-full mt-3 flex gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // implement details navigation or modal
-                      console.log("Details clicked for", name);
-                    }}
-                    className="flex-1 bg-white text-blue-600 rounded px-3 py-2 text-sm font-medium"
-                  >
-                    Details
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // implement quick actions
-                      console.log("Actions clicked for", name);
-                    }}
-                    className="flex-1 bg-white/20 border border-white text-white rounded px-3 py-2 text-sm"
-                  >
-                    Actions
-                  </button>
-                </div>
+                {/* Back (pre-rotated so it appears upright after parent rotates) */}
+                <div
+                  style={{
+                    ...faceStyle,
+                    ...backFacePreRotate,
+                    background: "#2563eb", // Tailwind blue-600
+                    color: "white",
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+                    zIndex: 1,
+                  }}
+                  aria-hidden={!isFlipped}
+                >
+                  <div className="w-full text-center px-3">
+                    <h2 className="text-lg font-semibold mb-1">{name} Details</h2>
+                    <p className="text-sm text-white/90 mb-3">Quick breakdown for {name.toLowerCase()}.</p>
 
-                <p className="text-xs opacity-80 mt-3">(Click to flip back)</p>
+                    <div className="w-full bg-white/10 rounded p-3 text-sm">
+                      <ul className="space-y-2">
+                        {detailedStats.map((d) => (
+                          <li key={d.label} className="flex justify-between">
+                            <span>{d.label}</span>
+                            <span className="font-semibold">{d.count}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="w-full mt-3 flex gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log("Details clicked for", name);
+                      }}
+                      className="flex-1 bg-white text-blue-600 rounded px-3 py-2 text-sm font-medium"
+                    >
+                      Details
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log("Actions clicked for", name);
+                      }}
+                      className="flex-1 bg-white/20 border border-white text-white rounded px-3 py-2 text-sm"
+                    >
+                      Actions
+                    </button>
+                  </div>
+
+                  <p className="text-xs opacity-80 mt-3">(Click to flip back)</p>
+                </div>
               </div>
             </div>
-
-            {/* small note about required CSS */}
-            {/* Add the CSS below to your global stylesheet if you don't already have it:
-                .backface-hidden { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
-                .rotate-y-180 { transform: rotateY(180deg); }
-                .transform.rotate-y-180 { transform: rotateY(180deg); }
-            */}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
