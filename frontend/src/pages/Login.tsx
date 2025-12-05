@@ -1,15 +1,17 @@
+// src/components/Login.tsx
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { LogIn, AlertCircle, Loader } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext"; // updated path
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isLoading: authLoading } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,17 +19,21 @@ const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      // Use AuthContext login to update global auth state
+      // call AuthContext.login which handles API call + saving token/user
       await login(email.trim(), password);
-      // navigate to dashboard after successful login
+
+      // success -> navigate
       navigate("/");
-    } catch (err) {
-      setError((err as Error).message || "An error occurred");
+    } catch (err: any) {
+      // AuthContext.login throws with a helpful message
+      setError(err?.message || "Login failed");
       console.error("Login error:", err);
     } finally {
       setLoading(false);
     }
   };
+
+  const disabled = loading || authLoading;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
@@ -90,10 +96,10 @@ const Login: React.FC = () => {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={disabled}
             className="w-full mt-6 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
-            {loading ? (
+            {disabled ? (
               <>
                 <Loader className="w-4 h-4 animate-spin" />
                 Signing in...
