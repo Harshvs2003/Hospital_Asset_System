@@ -144,7 +144,7 @@ const Dashboard: React.FC = () => {
               tabIndex={0}
               onClick={() => toggleFlip(name)}
               onKeyDown={(e) => handleKey(e, name)}
-              className="relative w-full h-52 cursor-pointer"
+              className="relative w-full h-90 cursor-pointer"
               aria-pressed={isFlipped}
               aria-label={`${name} card`}
             >
