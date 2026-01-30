@@ -1,7 +1,7 @@
 // src/pages/ReportPage.tsx
 import React from "react";
 import { get } from "../lib/api"; // centralized API helper
-import { Calendar, Download, Printer, RotateCw } from "lucide-react";
+import { Download, Printer, RotateCw } from "lucide-react";
 
 type Asset = {
   _id?: string;
@@ -64,13 +64,13 @@ const ReportPage: React.FC = () => {
       ).sort(),
     [assets]
   );
-  const locations = React.useMemo(
-    () =>
-      Array.from(
-        new Set(assets.map((a) => (a.location || "").trim()).filter(Boolean))
-      ).sort(),
-    [assets]
-  );
+  // const locations = React.useMemo(
+  //   () =>
+  //     Array.from(
+  //       new Set(assets.map((a) => (a.location || "").trim()).filter(Boolean))
+  //     ).sort(),
+  //   [assets]
+  // );
 
   // filtered assets by UI filters
   const filteredAssets = React.useMemo(() => {
