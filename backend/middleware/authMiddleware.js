@@ -2,17 +2,16 @@
 import { verifyAccessToken } from "../utils/tokenUtils.js";
 
 /**
- * protect - middleware that checks for a Bearer access token in Authorization header.
+ * protect - middleware that checks for access token in httpOnly cookie.
  * On success attaches req.user = { userId, role, ...payload } and calls next().
  */
 export const protect = (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    const token = req.cookies?.access_token;
+    if (!token) {
       return res.status(401).json({ message: "Not authorized" });
     }
 
-    const token = authHeader.split(" ")[1];
     let payload;
     try {
       payload = verifyAccessToken(token); // throws if invalid

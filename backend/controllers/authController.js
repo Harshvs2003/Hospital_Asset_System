@@ -23,6 +23,20 @@ const sendRefreshCookie = (res, token) => {
   });
 };
 
+// helper to set access cookie
+const sendAccessCookie = (res, token) => {
+  const cookieName = "access_token";
+  const isProd = process.env.NODE_ENV === "production";
+
+  res.cookie(cookieName, token, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "strict" : "lax",
+    path: "/", // sent to all routes
+    maxAge: 1000 * 60 * 15, // 15 minutes
+  });
+};
+
 export const register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
@@ -44,10 +58,11 @@ export const register = async (req, res) => {
     user.refreshTokenId = jti;
     await user.save();
 
-    // send refresh token as httpOnly cookie
+    // send tokens as httpOnly cookies
+    sendAccessCookie(res, accessToken);
     sendRefreshCookie(res, refreshToken);
 
-    // send back user (safe) + access token
+    // send back user (safe) only
     res.status(201).json({
       user: {
         id: user._id,
@@ -55,7 +70,6 @@ export const register = async (req, res) => {
         email: user.email,
         role: user.role,
       },
-      accessToken,
     });
   } catch (error) {
     console.error("Register error:", error);
@@ -81,6 +95,7 @@ export const login = async (req, res) => {
     user.refreshTokenId = jti;
     await user.save();
 
+    sendAccessCookie(res, accessToken);
     sendRefreshCookie(res, refreshToken);
 
     res.json({
@@ -90,7 +105,6 @@ export const login = async (req, res) => {
         email: user.email,
         role: user.role,
       },
-      accessToken,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -143,11 +157,11 @@ export const refreshToken = async (req, res) => {
     user.refreshTokenId = newJti;
     await user.save();
 
-    // set new cookie
+    // set new cookies
+    sendAccessCookie(res, accessToken);
     sendRefreshCookie(res, newRefreshToken);
 
     res.json({
-      accessToken,
       user: {
         id: user._id,
         name: user.name,
@@ -180,7 +194,13 @@ export const logout = async (req, res) => {
       }
     }
 
-    // clear cookie on client (match sameSite/secure/path options)
+    // clear cookies on client (match sameSite/secure/path options)
+    res.clearCookie("access_token", {
+      path: "/",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+    });
     res.clearCookie(cookieName, {
       path: "/api/auth",
       httpOnly: true,

@@ -11,15 +11,26 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Automatically attach Bearer token
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("accessToken");
-  if (token) {
-    config.headers = config.headers ?? {};
-    config.headers["Authorization"] = `Bearer ${token}`;
+// Response interceptor to handle token refresh
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401 && !error.config._retry) {
+      error.config._retry = true;
+      try {
+        // Try to refresh token
+        await get("/auth/refresh");
+        // Retry the original request
+        return api(error.config);
+      } catch (refreshError) {
+        // Refresh failed, user needs to login again
+        // Optionally, redirect to login or clear user state
+        return Promise.reject(refreshError);
+      }
+    }
+    return Promise.reject(error);
   }
-  return config;
-});
+);
 
 // Simple helpers (no type imports)
 export const get = async (path: string, config?: any) =>
