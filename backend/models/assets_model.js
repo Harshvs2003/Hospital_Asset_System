@@ -1,88 +1,69 @@
-import mongoose from "mongoose";
-import moment from "moment-timezone";
+import mongoose from 'mongoose';
+import moment from 'moment-timezone';
 
-const AssetSchema = new mongoose.Schema(
-  {
+const AssetSchema = new mongoose.Schema({
     assetId: {
-      type: String,
-      unique: true,
-      index: true,
-      required: true,
-      immutable: true, // 🔒 NEVER change once created
+        type: String,
+        unique: true,
+        index: true
     },
-
     name: {
-      type: String,
-      required: [true, "Please enter a name"],
+        type: String,
+        required: [true, "Please enter a name"]
     },
-
     subcategory: {
-      type: String,
-      required: false,
+        type: String,
+        required: false
     },
-
     storeindate: {
-      type: Date,
-      default: () => moment.tz("Asia/Kolkata").toDate(),
+        type: Date,
+        default: () => moment.tz('Asia/Kolkata').toDate()
     },
-
     category: {
-      type: String,
-      required: true,
+        type: String,
+        required: true
     },
-
     installdate: {
-      type: Date,
-      required: false,
+        type: Date,
+        required: false
     },
-
     purchaseDate: {
-      type: Date,
-      required: false,
+        type: Date,
+        required: false
     },
-
     lastServiceDate: {
-      type: Date,
-      required: false,
+        type: Date,
+        required: false
     },
-
     contractExpiryDate: {
-      type: Date,
-      required: false,
+        type: Date,
+        required: false
     },
-
     status: {
-      type: String,
-      required: true,
+        type: String,
+        required: true
     },
-
     location: {
-      type: String,
-      required: true,
+        type: String,
+        required: true
     },
-
     departmentId: {
-      type: String,
-      required: false,
+        type: String,
+        required: false
     },
-
     departmentName: {
-      type: String,
-      required: false,
-    },
+        type: String,
+        required: false
+    }
 
-    // ✅ THIS IS THE KEY FIX
-    // Means: "QR sticker has been printed at least once"
-    qrGenerated: {
-      type: Boolean,
-      default: false,
-      index: true,
-    },
-  },
-  {
-    timestamps: true,
-  }
+},
+
+{
+    timestamps: true
+}
 );
 
-const Asset = mongoose.model("Asset", AssetSchema);
+const Asset = mongoose.model('Asset', AssetSchema);
+
 export default Asset;
+    

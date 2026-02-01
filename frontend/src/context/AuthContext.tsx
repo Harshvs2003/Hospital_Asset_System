@@ -1,6 +1,6 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useState, useContext, useEffect } from "react";
-import { post, get } from "../lib/api"; // adjust path if your api is elsewhere
+import { post } from "../lib/api"; // adjust path if your api is elsewhere
 
 interface User {
   id: string;
@@ -25,18 +25,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Check if user is logged in on mount
   useEffect(() => {
-    const checkAuth = async () => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
       try {
-        const data = await get("/auth/me");
-        setUser(data);
+        setUser(JSON.parse(storedUser));
       } catch (err) {
-        // Not authenticated
-        setUser(null);
-      } finally {
-        setIsLoading(false);
+        console.error("Failed to parse stored user:", err);
+        localStorage.removeItem("user");
+        localStorage.removeItem("accessToken");
       }
-    };
-    checkAuth();
+    }
+    setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -44,7 +43,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // post helper hits `${API_BASE}/api/auth/login`
       const data = await post("/auth/login", { email, password });
-      // expecting { user }
+      // expecting { accessToken, user }
+      localStorage.setItem("accessToken", data.accessToken);
+      localStorage.setItem("user", JSON.stringify(data.user));
       setUser(data.user);
     } catch (err: any) {
       // normalize error message
@@ -59,11 +60,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     setIsLoading(true);
     try {
-      // post helper will send cookies
+      // post helper will include Authorization header automatically via interceptor
       await post("/auth/logout", {});
     } catch (err) {
       console.error("Logout error:", err);
     } finally {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("user");
       setUser(null);
       setIsLoading(false);
     }
