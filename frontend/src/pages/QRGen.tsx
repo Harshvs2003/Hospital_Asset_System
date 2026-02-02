@@ -1,8 +1,8 @@
 // src/pages/qrgen.tsx
 import React from "react";
 import { Search, Download, Printer, CheckSquare, Square } from "lucide-react";
-import { generateQRCodeURL } from "../utils/qrcode"; // keep as-is
-import api, { get } from "../lib/api"; // <- uses central api helpers
+import { generateQRCodeURL } from "../utils/qrcode";
+import api, { get } from "../lib/api";
 
 type AssetMinimal = {
   _id?: string;
@@ -20,7 +20,7 @@ const QRGenPage: React.FC = () => {
   const [loading, setLoading] = React.useState(false);
   const [actionMessage, setActionMessage] = React.useState<string | null>(null);
 
-  // for Specific mode
+  // specific mode
   const [query, setQuery] = React.useState("");
   const [searchResults, setSearchResults] = React.useState<AssetMinimal[]>([]);
   const [selectedAsset, setSelectedAsset] = React.useState<AssetMinimal | null>(null);
@@ -31,28 +31,21 @@ const QRGenPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
-  // Fetch recent assets — try dedicated endpoint, fallback to list and filter client-side
+  // ================= FETCH RECENT =================
   const fetchRecentAssets = async () => {
     setLoading(true);
     setActionMessage(null);
     try {
-      // try dedicated endpoint first
-      let arr: AssetMinimal[] = [];
-      try {
-        const data = await get("/assets/recent");
-        arr = Array.isArray(data) ? data : [];
-      } catch (err) {
-        // fallback: fetch latest and filter client-side
-        const data = await get("/assets?per=100&sort=createdAt_desc");
-        arr = Array.isArray(data) ? data : [];
-      }
+      // let arr: AssetMinimal[] = [];
+      
+      const data = await get("/assets?per=100&sort=createdAt_desc");
+      const arr = Array.isArray(data) ? data : [];
+      
 
-      // Filter to only those that are not qrGenerated (backend may already do this)
-      const filtered = arr.filter((a) => !a.qrGenerated);
-      setRecentAssets(filtered);
+      setRecentAssets(arr.filter((a) => !a.qrGenerated));
       setSelectedIds({});
     } catch (err) {
-      console.error("Failed to load recent assets:", err);
+      console.error(err);
       setActionMessage("Failed to load recent assets");
       setRecentAssets([]);
     } finally {
@@ -60,7 +53,7 @@ const QRGenPage: React.FC = () => {
     }
   };
 
-  // Simple search for specific asset by id or name. Backend: GET /api/assets?search=...
+  // ================= SEARCH =================
   const doSearch = async (q: string) => {
     if (!q) {
       setSearchResults([]);
@@ -70,15 +63,12 @@ const QRGenPage: React.FC = () => {
     try {
       const data = await get(`/assets?search=${encodeURIComponent(q)}&per=20`);
       setSearchResults(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Search failed:", err);
-      setSearchResults([]);
     } finally {
       setFetchingSearch(false);
     }
   };
 
-  // Toggle selection for recently added list
+  // ================= SELECTION =================
   const toggleSelect = (id?: string) => {
     if (!id) return;
     setSelectedIds((s) => ({ ...s, [id]: !s[id] }));
@@ -86,157 +76,124 @@ const QRGenPage: React.FC = () => {
 
   const selectAll = () => {
     const all: Record<string, boolean> = {};
-    recentAssets.forEach((a) => {
-      if (a._id) all[a._id] = true;
-    });
+    recentAssets.forEach((a) => a._id && (all[a._id] = true));
     setSelectedIds(all);
   };
 
   const clearSelection = () => setSelectedIds({});
 
-  // generate printable window that contains all selected QR images and auto-print (user can cancel)
-  const openPrintView = async (assets: AssetMinimal[]) => {
-    if (!assets.length) return setActionMessage("No assets selected");
-    const htmlParts = assets.map(
-      (a) => `
-      <div style="display:inline-block;width:220px;padding:12px;text-align:center;box-sizing:border-box;border:1px solid #eee;margin:8px;">
-        <div style="font-size:12px;color:#222;font-weight:600;margin-bottom:8px;">${escapeHtml(a.name || a.assetId || "")}</div>
-        <img src="${generateQRCodeURL(a.assetId || a._id || "")}" style="width:180px;height:180px;object-fit:contain;" />
-        <div style="font-family:monospace;font-size:11px;color:#333;margin-top:8px;">${escapeHtml(a.assetId || a._id || "")}</div>
-        <div style="font-size:11px;color:#666;">${escapeHtml(a.departmentName || "")}</div>
-      </div>
-    `
-    );
-    const html = `
-      <html>
-        <head>
-          <title>Print QRs</title>
-          <style>
-            @media print { body { -webkit-print-color-adjust: exact; } .no-print { display:none; } }
-            body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding: 18px; }
-          </style>
-        </head>
-        <body>
-          <div style="margin-bottom:12px;">
-            <button onclick="window.print()" style="padding:8px 12px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;margin-right:8px;">Print</button>
-            <button onclick="window.close()" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;cursor:pointer;">Close</button>
-          </div>
-          <div>${htmlParts.join("")}</div>
-        </body>
-      </html>
-    `;
-    const win = window.open("", "_blank", "width=900,height=700,scrollbars=yes");
-    if (!win) {
-      setActionMessage("Popup blocked — allow popups for printing");
-      return;
-    }
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
-  };
+  const getSelectedAssets = () =>
+    recentAssets.filter((a) => a._id && selectedIds[a._id]);
 
-  // Download each QR image as PNG using the QR server URL (keep using fetch to get blobs)
-  const downloadPNGs = async (assets: AssetMinimal[]) => {
-    if (!assets.length) return setActionMessage("No assets selected");
-    setActionMessage(null);
-    setLoading(true);
-    try {
-      for (const a of assets) {
-        const qrUrl = generateQRCodeURL(a.assetId || a._id || "");
-        try {
-          const res = await fetch(qrUrl);
-          if (!res.ok) {
-            console.warn("Failed to fetch QR for", a.assetId || a._id);
-            continue;
-          }
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-          const aEl = document.createElement("a");
-          aEl.href = url;
-          const name = `${(a.assetId || a._id || "asset")}_qrcode.png`;
-          aEl.download = name;
-          document.body.appendChild(aEl);
-          aEl.click();
-          aEl.remove();
-          URL.revokeObjectURL(url);
-          // small throttle so browser can handle multiple downloads
-          await sleep(300);
-        } catch (err) {
-          console.error("Download failed for", a, err);
-        }
-      }
-      setActionMessage("Downloads started");
-      // After downloads, mark assets as generated (if in recent mode)
-      const toPatch = assets.filter((x) => x._id).map((x) => x._id!);
-      if (mode === "recent" && toPatch.length) await markAsGeneratedServerSide(toPatch);
-    } catch (err) {
-      console.error(err);
-      setActionMessage("Failed to download some QR images");
-    } finally {
-      setLoading(false);
-      setTimeout(() => setActionMessage(null), 4000);
-    }
-  };
-
-  // Mark assets as qrGenerated on the server (PATCH).
-  // Uses api.patch for consistency with central axios instance
+  // ================= MARK GENERATED =================
   const markAsGeneratedServerSide = async (ids: string[]) => {
     try {
       await Promise.all(
         ids.map((id) =>
-          api
-            .patch(`/assets/byAssetId/${encodeURIComponent(id)}`, { qrGenerated: true })
-            .then((r) => {
-              if (r.status >= 400) console.warn("Failed to mark generated for", id);
-              return r;
-            })
-            .catch((e) => {
-              console.warn("Failed to mark generated for", id, e);
-            })
+          api.patch(`/assets/${encodeURIComponent(id)}`, {
+            qrGenerated: true,
+          })
         )
       );
-      // refresh recent list
-      await fetchRecentAssets();
+
+      setRecentAssets((prev) => prev.filter((a) => !a._id || !ids.includes(a._id)));
+      setSelectedIds({});
     } catch (err) {
-      console.error("Failed to update generated flags:", err);
+      console.error("Failed to mark QR generated", err);
     }
   };
 
-  // Helper: build selected assets array
-  const getSelectedAssets = (): AssetMinimal[] => {
-    const sel = recentAssets.filter((a) => a._id && selectedIds[a._id!]);
-    return sel;
+  // ================= PRINT (RECENT & SPECIFIC) =================
+  const openPrintView = async (assets: AssetMinimal[]) => {
+    if (!assets.length) return setActionMessage("No assets selected");
+
+    const htmlParts = assets.map(
+      (a) => `
+      <div style="display:inline-block;width:220px;padding:12px;text-align:center;border:1px solid #eee;margin:8px;">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px;">${escapeHtml(
+          a.name || a.assetId || ""
+        )}</div>
+        <img src="${generateQRCodeURL(a.assetId || a._id || "")}" style="width:180px;height:180px;" />
+        <div style="font-size:11px;margin-top:8px;">${escapeHtml(
+          a.assetId || a._id || ""
+        )}</div>
+        <div style="font-size:11px;color:#666;">${escapeHtml(
+          a.departmentName || ""
+        )}</div>
+      </div>`
+    );
+
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (!win) return setActionMessage("Popup blocked");
+
+    win.document.write(`
+      <html>
+        <body style="font-family:system-ui;padding:16px">
+          <button onclick="window.print()">Print</button>
+          <button onclick="window.close()">Close</button>
+          <div>${htmlParts.join("")}</div>
+        </body>
+      </html>
+    `);
+    win.document.close();
+
+    if (mode === "recent") {
+      const ids = assets.filter((a) => a._id).map((a) => a._id!);
+      await markAsGeneratedServerSide(ids);
+    }
   };
 
-  // Small utility helpers
-  function sleep(ms: number) {
-    return new Promise((res) => setTimeout(res, ms));
-  }
-  function escapeHtml(str?: string) {
-    if (!str) return "";
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
+  // ================= DOWNLOAD (RECENT & SPECIFIC) =================
+  const downloadPNGs = async (assets: AssetMinimal[]) => {
+    if (!assets.length) return setActionMessage("No assets selected");
+    setLoading(true);
+    try {
+      for (const a of assets) {
+        const res = await fetch(generateQRCodeURL(a.assetId || a._id || ""));
+        if (!res.ok) continue;
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${a.assetId || a._id}_qr.png`;
+        link.click();
+        URL.revokeObjectURL(url);
+        await sleep(300);
+      }
 
-  // Specific mode: when user clicks a search result
+      if (mode === "recent") {
+        const ids = assets.filter((a) => a._id).map((a) => a._id!);
+        await markAsGeneratedServerSide(ids);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ THESE TWO WERE MISSING (CAUSE OF RED ERRORS)
+  const handleSpecificPrint = (a: AssetMinimal | null) => {
+    if (!a) return;
+    openPrintView([a]);
+  };
+
+  const handleSpecificDownload = async (a: AssetMinimal | null) => {
+    if (!a) return;
+    await downloadPNGs([a]);
+  };
+
+  // ================= HELPERS =================
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const escapeHtml = (s?: string) =>
+    s
+      ? s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      : "";
+
   const pickSpecific = (a: AssetMinimal) => {
     setSelectedAsset(a);
     setSearchResults([]);
     setQuery("");
   };
 
-  // Specific mode: download or print single asset
-  const handleSpecificDownload = async (a: AssetMinimal | null) => {
-    if (!a) return setActionMessage("No asset selected");
-    await downloadPNGs([a]);
-  };
-  const handleSpecificPrint = (a: AssetMinimal | null) => {
-    if (!a) return setActionMessage("No asset selected");
-    openPrintView([a]);
-  };
 
   // UI
   return (

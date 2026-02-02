@@ -54,7 +54,11 @@ const AssetSchema = new mongoose.Schema({
     departmentName: {
         type: String,
         required: false
-    }
+    },
+    qrGenerated: {
+        type: Boolean,
+        default: false
+    },
 
 },
 
