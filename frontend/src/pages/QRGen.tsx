@@ -8,6 +8,8 @@ type AssetMinimal = {
   _id?: string;
   assetId?: string;
   name?: string;
+  category?: string;
+  location?: string;
   departmentName?: string;
   createdAt?: string;
   qrGenerated?: boolean;
@@ -16,18 +18,24 @@ type AssetMinimal = {
 const QRGenPage: React.FC = () => {
   const [mode, setMode] = React.useState<"recent" | "specific">("recent");
   const [recentAssets, setRecentAssets] = React.useState<AssetMinimal[]>([]);
-  const [selectedIds, setSelectedIds] = React.useState<Record<string, boolean>>({});
+  const [selectedIds, setSelectedIds] = React.useState<Record<string, boolean>>(
+    {},
+  );
   const [loading, setLoading] = React.useState(false);
   const [actionMessage, setActionMessage] = React.useState<string | null>(null);
-
   // specific mode
   const [query, setQuery] = React.useState("");
-  const [searchResults, setSearchResults] = React.useState<AssetMinimal[]>([]);
-  const [selectedAsset, setSelectedAsset] = React.useState<AssetMinimal | null>(null);
-  const [fetchingSearch, setFetchingSearch] = React.useState(false);
+  const [selectedAsset, setSelectedAsset] = React.useState<AssetMinimal | null>(
+    null,
+  );
+  const [specificAssets, setSpecificAssets] = React.useState<AssetMinimal[]>([]);
+  const [loadingSpecific, setLoadingSpecific] = React.useState(false);
+  const [categoryFilter, setCategoryFilter] = React.useState("");
+  const [departmentFilter, setDepartmentFilter] = React.useState("");
 
   React.useEffect(() => {
     if (mode === "recent") fetchRecentAssets();
+    if (mode === "specific") fetchSpecificAssets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
@@ -37,10 +45,9 @@ const QRGenPage: React.FC = () => {
     setActionMessage(null);
     try {
       // let arr: AssetMinimal[] = [];
-      
+
       const data = await get("/assets?per=100&sort=createdAt_desc");
       const arr = Array.isArray(data) ? data : [];
-      
 
       setRecentAssets(arr.filter((a) => !a.qrGenerated));
       setSelectedIds({});
@@ -53,20 +60,52 @@ const QRGenPage: React.FC = () => {
     }
   };
 
-  // ================= SEARCH =================
-  const doSearch = async (q: string) => {
-    if (!q) {
-      setSearchResults([]);
-      return;
-    }
-    setFetchingSearch(true);
+  // ================= SPECIFIC (LOCAL SEARCH) =================
+  const fetchSpecificAssets = async () => {
+    setLoadingSpecific(true);
     try {
-      const data = await get(`/assets?search=${encodeURIComponent(q)}&per=20`);
-      setSearchResults(Array.isArray(data) ? data : []);
+      const data = await get("/assets");
+      const arr = Array.isArray(data) ? data : [];
+      setSpecificAssets(arr);
+    } catch (err) {
+      console.error("Failed to load assets for specific search", err);
+      setSpecificAssets([]);
     } finally {
-      setFetchingSearch(false);
+      setLoadingSpecific(false);
     }
   };
+
+  const searchResults = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+
+    return specificAssets.filter((a) => {
+      const matchesQuery =
+        (a.assetId || "").toLowerCase().includes(q) ||
+        (a.name || "").toLowerCase().includes(q) ||
+        (a.category || "").toLowerCase().includes(q) ||
+        (a.location || "").toLowerCase().includes(q) ||
+        (a.departmentName || "").toLowerCase().includes(q);
+
+      const matchesCategory = !categoryFilter || (a.category || "") === categoryFilter;
+      const matchesDepartment =
+        !departmentFilter || (a.departmentName || "") === departmentFilter;
+
+      return matchesQuery && matchesCategory && matchesDepartment;
+    });
+  }, [specificAssets, query, categoryFilter, departmentFilter]);
+
+  const categories = React.useMemo(
+    () => Array.from(new Set(specificAssets.map((a) => a.category || "").filter(Boolean))),
+    [specificAssets],
+  );
+  const departments = React.useMemo(
+    () =>
+      Array.from(
+        new Set(specificAssets.map((a) => a.departmentName || "").filter(Boolean)),
+      ),
+    [specificAssets],
+  );
 
   // ================= SELECTION =================
   const toggleSelect = (id?: string) => {
@@ -92,11 +131,13 @@ const QRGenPage: React.FC = () => {
         ids.map((id) =>
           api.patch(`/assets/${encodeURIComponent(id)}`, {
             qrGenerated: true,
-          })
-        )
+          }),
+        ),
       );
 
-      setRecentAssets((prev) => prev.filter((a) => !a._id || !ids.includes(a._id)));
+      setRecentAssets((prev) =>
+        prev.filter((a) => !a._id || !ids.includes(a._id)),
+      );
       setSelectedIds({});
     } catch (err) {
       console.error("Failed to mark QR generated", err);
@@ -111,16 +152,16 @@ const QRGenPage: React.FC = () => {
       (a) => `
       <div style="display:inline-block;width:220px;padding:12px;text-align:center;border:1px solid #eee;margin:8px;">
         <div style="font-size:12px;font-weight:600;margin-bottom:8px;">${escapeHtml(
-          a.name || a.assetId || ""
+          a.name || a.assetId || "",
         )}</div>
         <img src="${generateQRCodeURL(a.assetId || a._id || "")}" style="width:180px;height:180px;" />
         <div style="font-size:11px;margin-top:8px;">${escapeHtml(
-          a.assetId || a._id || ""
+          a.assetId || a._id || "",
         )}</div>
         <div style="font-size:11px;color:#666;">${escapeHtml(
-          a.departmentName || ""
+          a.departmentName || "",
         )}</div>
-      </div>`
+      </div>`,
     );
 
     const win = window.open("", "_blank", "width=900,height=700");
@@ -190,17 +231,18 @@ const QRGenPage: React.FC = () => {
 
   const pickSpecific = (a: AssetMinimal) => {
     setSelectedAsset(a);
-    setSearchResults([]);
     setQuery("");
   };
-
 
   // UI
   return (
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">QR Generator</h1>
-        <p className="text-gray-600 mt-1">Generate and print QR codes for assets — recently added or specific ones.</p>
+        <p className="text-gray-600 mt-1">
+          Generate and print QR codes for assets — recently added or specific
+          ones.
+        </p>
       </div>
 
       <div className="bg-white rounded-lg shadow p-4">
@@ -225,7 +267,9 @@ const QRGenPage: React.FC = () => {
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-white rounded-lg shadow p-4">
               <div className="flex items-center justify-between mb-3">
-                <div className="text-sm text-gray-700">Recently added (not QR-generated)</div>
+                <div className="text-sm text-gray-700">
+                  Recently added (not QR-generated)
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={selectAll}
@@ -245,7 +289,9 @@ const QRGenPage: React.FC = () => {
               {loading ? (
                 <div className="text-sm text-gray-500">Loading...</div>
               ) : recentAssets.length === 0 ? (
-                <div className="text-sm text-gray-500">No recent un-generated assets found.</div>
+                <div className="text-sm text-gray-500">
+                  No recent un-generated assets found.
+                </div>
               ) : (
                 <div className="space-y-2">
                   {recentAssets.map((a) => (
@@ -266,10 +312,14 @@ const QRGenPage: React.FC = () => {
                           )}
                         </button>
                         <div>
-                          <div className="font-medium text-gray-900">{a.name || a.assetId}</div>
+                          <div className="font-medium text-gray-900">
+                            {a.name || a.assetId}
+                          </div>
                           <div className="text-xs text-gray-500">
                             {a.assetId} • {a.departmentName || "—"} •{" "}
-                            {a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ""}
+                            {a.createdAt
+                              ? new Date(a.createdAt).toLocaleDateString()
+                              : ""}
                           </div>
                         </div>
                       </div>
@@ -314,7 +364,9 @@ const QRGenPage: React.FC = () => {
               </div>
             </div>
 
-            {actionMessage && <div className="text-sm text-gray-700">{actionMessage}</div>}
+            {actionMessage && (
+              <div className="text-sm text-gray-700">{actionMessage}</div>
+            )}
           </div>
 
           {/* Right pane: preview of currently selected asset(s) */}
@@ -322,28 +374,40 @@ const QRGenPage: React.FC = () => {
             <div className="bg-white rounded-lg shadow p-4">
               <div className="text-sm text-gray-700 mb-2">Preview</div>
               {getSelectedAssets().length === 0 ? (
-                <div className="text-sm text-gray-500">Select assets to preview QR</div>
+                <div className="text-sm text-gray-500">
+                  Select assets to preview QR
+                </div>
               ) : (
                 <div className="space-y-3">
-                  {getSelectedAssets().slice(0, 6).map((a) => (
-                    <div key={a._id || a.assetId} className="flex items-center gap-3">
-                      <img
-                        src={generateQRCodeURL(a.assetId || a._id || "")}
-                        alt="qr"
-                        className="w-20 h-20 object-contain bg-white border"
-                      />
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{a.name || a.assetId}</div>
-                        <div className="text-xs text-gray-500">{a.assetId}</div>
+                  {getSelectedAssets()
+                    .slice(0, 6)
+                    .map((a) => (
+                      <div
+                        key={a._id || a.assetId}
+                        className="flex items-center gap-3"
+                      >
+                        <img
+                          src={generateQRCodeURL(a.assetId || a._id || "")}
+                          alt="qr"
+                          className="w-20 h-20 object-contain bg-white border"
+                        />
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {a.name || a.assetId}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {a.assetId}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               )}
             </div>
 
             <div className="bg-white rounded-lg shadow p-4 text-sm text-gray-600">
-              Tip: Use "Open Print View" to open a printable page with many QR codes and print them on sticker paper.
+              Tip: Use "Open Print View" to open a printable page with many QR
+              codes and print them on sticker paper.
             </div>
           </div>
         </div>
@@ -359,36 +423,47 @@ const QRGenPage: React.FC = () => {
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value);
-                  doSearch(e.target.value);
                 }}
               />
             </div>
 
-            <div>
-              <button
-                onClick={() => {
-                  if (selectedAsset) {
-                    handleSpecificPrint(selectedAsset);
-                  } else if (query) {
-                    doSearch(query);
-                  }
+            <div className="flex items-center gap-2">
+              {/* Category filter */}
+              <select
+                value={categoryFilter}
+                onChange={(e) => {
+                  setCategoryFilter(e.target.value);
                 }}
-                className="px-3 py-2 bg-white border rounded text-sm"
+                className="px-3 py-2 border rounded text-sm bg-white"
               >
-                Print / Search
-              </button>
-              <button
-                onClick={() => handleSpecificDownload(selectedAsset)}
-                className="ml-2 px-3 py-2 bg-blue-600 text-white rounded text-sm flex items-center gap-2"
-                disabled={!selectedAsset}
+                <option value="">All Categories</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+
+              {/* Department filter */}
+              <select
+                value={departmentFilter}
+                onChange={(e) => {
+                  setDepartmentFilter(e.target.value);
+                }}
+                className="px-3 py-2 border rounded text-sm bg-white"
               >
-                <Download className="w-4 h-4" /> Download
-              </button>
+                <option value="">All Departments</option>
+                {departments.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
           <div className="mt-3">
-            {fetchingSearch ? (
+            {loadingSpecific ? (
               <div className="text-sm text-gray-500">Searching...</div>
             ) : searchResults.length > 0 ? (
               <div className="border rounded mt-2 max-h-56 overflow-auto">
@@ -399,31 +474,57 @@ const QRGenPage: React.FC = () => {
                     className="p-2 hover:bg-gray-50 cursor-pointer flex items-center justify-between"
                   >
                     <div>
-                      <div className="font-medium text-gray-900">{r.name || r.assetId}</div>
-                      <div className="text-xs text-gray-500">{r.assetId} • {r.departmentName}</div>
+                      <div className="font-medium text-gray-900">
+                        {r.name || r.assetId}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {r.assetId} • {r.departmentName}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-400">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ""}</div>
+                    <div className="text-xs text-gray-400">
+                      {r.createdAt
+                        ? new Date(r.createdAt).toLocaleDateString()
+                        : ""}
+                    </div>
                   </div>
                 ))}
               </div>
             ) : selectedAsset ? (
               <div className="mt-4 flex gap-4 items-center">
-                <img src={generateQRCodeURL(selectedAsset.assetId || selectedAsset._id || "")} alt="qr" className="w-36 h-36 object-contain bg-white border" />
+                <img
+                  src={generateQRCodeURL(
+                    selectedAsset.assetId || selectedAsset._id || "",
+                  )}
+                  alt="qr"
+                  className="w-36 h-36 object-contain bg-white border"
+                />
                 <div>
-                  <div className="text-lg font-medium">{selectedAsset.name}</div>
-                  <div className="text-xs text-gray-500">{selectedAsset.assetId}</div>
+                  <div className="text-lg font-medium">
+                    {selectedAsset.name}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {selectedAsset.assetId}
+                  </div>
                   <div className="mt-3 flex gap-2">
-                    <button onClick={() => handleSpecificPrint(selectedAsset)} className="px-3 py-2 border rounded text-sm flex items-center gap-2">
+                    <button
+                      onClick={() => handleSpecificPrint(selectedAsset)}
+                      className="px-3 py-2 border rounded text-sm flex items-center gap-2"
+                    >
                       <Printer className="w-4 h-4" /> Print
                     </button>
-                    <button onClick={() => handleSpecificDownload(selectedAsset)} className="px-3 py-2 bg-blue-600 text-white rounded text-sm flex items-center gap-2">
+                    <button
+                      onClick={() => handleSpecificDownload(selectedAsset)}
+                      className="px-3 py-2 bg-blue-600 text-white rounded text-sm flex items-center gap-2"
+                    >
                       <Download className="w-4 h-4" /> Download PNG
                     </button>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="text-sm text-gray-500 mt-3">Search and choose an asset to preview its QR.</div>
+              <div className="text-sm text-gray-500 mt-3">
+                Search and choose an asset to preview its QR.
+              </div>
             )}
           </div>
         </div>
