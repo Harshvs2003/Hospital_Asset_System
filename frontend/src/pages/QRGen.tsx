@@ -418,7 +418,7 @@ const QRGenPage: React.FC = () => {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
-                className="w-full pl-10 pr-3 py-2 border rounded"
+                className="w-205 pl-10 pr-3 py-2 border rounded"
                 placeholder="Search by asset id or name..."
                 value={query}
                 onChange={(e) => {
@@ -434,7 +434,7 @@ const QRGenPage: React.FC = () => {
                 onChange={(e) => {
                   setCategoryFilter(e.target.value);
                 }}
-                className="px-3 py-2 border rounded text-sm bg-white"
+                className="px-8 py-2 border rounded text-sm bg-white"
               >
                 <option value="">All Categories</option>
                 {categories.map((c) => (
@@ -450,7 +450,7 @@ const QRGenPage: React.FC = () => {
                 onChange={(e) => {
                   setDepartmentFilter(e.target.value);
                 }}
-                className="px-3 py-2 border rounded text-sm bg-white"
+                className="px-8 py-2 border rounded text-sm bg-white"
               >
                 <option value="">All Departments</option>
                 {departments.map((d) => (
