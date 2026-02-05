@@ -1,7 +1,7 @@
-// src/pages/ComplainPage.tsx
 import React from "react";
 import { useLocation } from "react-router-dom";
-import { get, post } from "../lib/api"; // adjust path if needed
+import { get, post } from "../lib/api";
+import Select from "react-select";
 
 type Asset = {
   _id?: string;
@@ -20,7 +20,6 @@ const ComplainPage: React.FC = () => {
   const [submitted, setSubmitted] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Load assets for selection
   React.useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -44,7 +43,6 @@ const ComplainPage: React.FC = () => {
     };
   }, []);
 
-  // Preselect assetId from query param if provided (e.g., /complain?assetId=NH...)
   const location = useLocation();
   React.useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -75,13 +73,27 @@ const ComplainPage: React.FC = () => {
       setError(null);
     } catch (err: any) {
       console.error("Failed to submit complaint:", err);
-      const msg = err?.response?.data?.message || err?.message || "Failed to submit complaint. Please try again.";
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to submit complaint. Please try again.";
       setError(msg);
       setSubmitted(false);
     } finally {
       setLoading(false);
     }
   };
+
+  // ✅ react-select options
+  const assetOptions = assets.map((a) => ({
+    value: a.assetId || "",
+    label: `${a.assetId} — ${a.name || a.category || "Unnamed"}`,
+  }));
+
+  // ✅ preselect value (when assetId is passed in query param)
+  const selectedOption = assetOptions.find(
+    (opt) => opt.value === selectedAssetId
+  );
 
   return (
     <div className="p-6">
@@ -95,7 +107,9 @@ const ComplainPage: React.FC = () => {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Complaint Type *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Complaint Type *
+              </label>
               <select
                 value={complaintType}
                 onChange={(e) => setComplaintType(e.target.value)}
@@ -103,37 +117,48 @@ const ComplainPage: React.FC = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select Type</option>
-                <option value="Equipment Malfunction">Equipment Malfunction</option>
+                <option value="Equipment Malfunction">
+                  Equipment Malfunction
+                </option>
                 <option value="Missing Asset">Missing Asset</option>
                 <option value="Quality Issue">Quality Issue</option>
                 <option value="Other">Other</option>
               </select>
             </div>
 
+            {/* ✅ Searchable Asset Dropdown */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Select Asset (optional)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Select Asset (optional)
+              </label>
+
               {loading ? (
                 <div className="text-sm text-gray-500">Loading assets...</div>
               ) : error ? (
                 <div className="text-sm text-red-600">{error}</div>
               ) : (
-                <select
-                  value={selectedAssetId}
-                  onChange={(e) => setSelectedAssetId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">-- Select asset (optional) --</option>
-                  {assets.map((a) => (
-                    <option key={a._id || a.assetId} value={a.assetId}>
-                      {a.assetId ? `${a.assetId} — ${a.name || a.category || "Unnamed"}` : a.name}
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  options={assetOptions}
+                  value={selectedOption || null}
+                  onChange={(selected) =>
+                    setSelectedAssetId(selected?.value || "")
+                  }
+                  isClearable
+                  placeholder="Search by Asset ID or Name..."
+                  className="text-sm"
+                  classNamePrefix="react-select"
+                  filterOption={(option, inputValue) => {
+                    const search = inputValue.toLowerCase();
+                    return option.label.toLowerCase().includes(search);
+                  }}
+                />
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Description *
+              </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -145,7 +170,9 @@ const ComplainPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Complain Filed By:</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Complain Filed By:
+              </label>
               <input
                 value={filedBy}
                 onChange={(e) => setFiledBy(e.target.value)}
