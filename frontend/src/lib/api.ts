@@ -11,15 +11,64 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+let accessToken: string | null = null;
+
+export const setAccessToken = (token: string | null) => {
+  accessToken = token;
+};
+
 // Automatically attach Bearer token
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("accessToken");
-  if (token) {
+  if (accessToken) {
     config.headers = config.headers ?? {};
-    config.headers["Authorization"] = `Bearer ${token}`;
+    config.headers["Authorization"] = `Bearer ${accessToken}`;
   }
   return config;
 });
+
+let refreshPromise: Promise<any | null> | null = null;
+export const refreshSession = async () => {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const res = await api.get("/auth/refresh", {
+          headers: { "x-skip-auth-refresh": "1" },
+        });
+        const token = res.data?.accessToken || null;
+        setAccessToken(token);
+        return res.data;
+      } catch {
+        setAccessToken(null);
+        return null;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+  return refreshPromise;
+};
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const original = error.config || {};
+    const status = error?.response?.status;
+    const isRefreshCall = original?.url?.includes("/auth/refresh");
+    const skip = original?.headers?.["x-skip-auth-refresh"];
+
+    if (status === 401 && !original._retry && !isRefreshCall && !skip) {
+      original._retry = true;
+      const data = await refreshSession();
+      const token = data?.accessToken;
+      if (token) {
+        original.headers = original.headers ?? {};
+        original.headers["Authorization"] = `Bearer ${token}`;
+        return api(original);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Simple helpers (no type imports)
 export const get = async (path: string, config?: any) =>

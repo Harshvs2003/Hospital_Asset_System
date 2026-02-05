@@ -11,13 +11,20 @@ import {
 const sendRefreshCookie = (res, token) => {
   const cookieName = process.env.COOKIE_NAME || "rf_token";
   const isProd = process.env.NODE_ENV === "production";
+  const cookieDomain = process.env.COOKIE_DOMAIN;
+  const sameSite =
+    process.env.COOKIE_SAMESITE ||
+    (isProd ? "lax" : "lax");
+  const secure =
+    process.env.COOKIE_SECURE === "true" ? true : isProd;
 
   // For cross-site deployments (frontend != backend) you need sameSite: "none" and secure: true in production.
   // For local/dev use lax to allow easier testing.
   res.cookie(cookieName, token, {
     httpOnly: true,
-    secure: isProd, // true in production (requires HTTPS)
-    sameSite: isProd ? "none" : "lax",
+    secure,
+    sameSite,
+    ...(cookieDomain ? { domain: cookieDomain } : {}),
     path: "/api/auth", // cookie sent only to auth endpoints (adjust if needed)
     maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
   });
@@ -40,8 +47,10 @@ export const register = async (req, res) => {
     const accessToken = createAccessToken(user);
     const { token: refreshToken, jti } = createRefreshToken(user);
 
-    // store jti in user record (single session)
-    user.refreshTokenId = jti;
+    // store jti in user record (multi-session)
+    user.refreshTokenIds = Array.isArray(user.refreshTokenIds)
+      ? [...new Set([...user.refreshTokenIds, jti])].slice(-5)
+      : [jti];
     await user.save();
 
     // send refresh token as httpOnly cookie
@@ -78,7 +87,9 @@ export const login = async (req, res) => {
     const accessToken = createAccessToken(user);
     const { token: refreshToken, jti } = createRefreshToken(user);
 
-    user.refreshTokenId = jti;
+    user.refreshTokenIds = Array.isArray(user.refreshTokenIds)
+      ? [...new Set([...user.refreshTokenIds, jti])].slice(-5)
+      : [jti];
     await user.save();
 
     sendRefreshCookie(res, refreshToken);
@@ -112,8 +123,9 @@ export const refreshToken = async (req, res) => {
       res.clearCookie(cookieName, {
         path: "/api/auth",
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        secure: process.env.COOKIE_SECURE === "true" ? true : process.env.NODE_ENV === "production",
+        sameSite: process.env.COOKIE_SAMESITE || (process.env.NODE_ENV === "production" ? "lax" : "lax"),
+        ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
       });
       return res.status(401).json({ message: "Invalid refresh token" });
     }
@@ -124,14 +136,23 @@ export const refreshToken = async (req, res) => {
       return res.status(401).json({ message: "User not found" });
     }
 
-    // ensure token jti matches stored jti (rotation single-session)
-    if (!user.refreshTokenId || user.refreshTokenId !== payload.jti) {
+    // ensure token jti matches stored jti (rotation multi-session)
+    const legacyId = user.refreshTokenId;
+    const tokenIds = Array.isArray(user.refreshTokenIds)
+      ? user.refreshTokenIds
+      : [];
+
+    const hasToken =
+      tokenIds.includes(payload.jti) || (legacyId && legacyId === payload.jti);
+
+    if (!hasToken) {
       // possible reuse or logout — reject and clear cookie
       res.clearCookie(cookieName, {
         path: "/api/auth",
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        secure: process.env.COOKIE_SECURE === "true" ? true : process.env.NODE_ENV === "production",
+        sameSite: process.env.COOKIE_SAMESITE || (process.env.NODE_ENV === "production" ? "lax" : "lax"),
+        ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
       });
       return res.status(401).json({ message: "Refresh token not recognized" });
     }
@@ -140,7 +161,10 @@ export const refreshToken = async (req, res) => {
     const accessToken = createAccessToken(user);
     const { token: newRefreshToken, jti: newJti } = createRefreshToken(user);
 
-    user.refreshTokenId = newJti;
+    const nextIds = tokenIds.filter((t) => t !== payload.jti);
+    nextIds.push(newJti);
+    user.refreshTokenIds = Array.from(new Set(nextIds)).slice(-5);
+    user.refreshTokenId = undefined;
     await user.save();
 
     // set new cookie
@@ -166,13 +190,20 @@ export const logout = async (req, res) => {
     const cookieName = process.env.COOKIE_NAME || "rf_token";
     const token = req.cookies?.[cookieName];
 
-    // If token present, attempt to clear user refreshTokenId
+    // If token present, attempt to clear user refreshTokenId(s)
     if (token) {
       try {
         const payload = verifyRefreshToken(token);
         const user = await User.findById(payload.userId);
         if (user) {
-          user.refreshTokenId = null;
+          if (Array.isArray(user.refreshTokenIds)) {
+            user.refreshTokenIds = user.refreshTokenIds.filter(
+              (t) => t !== payload.jti
+            );
+          }
+          if (user.refreshTokenId && user.refreshTokenId === payload.jti) {
+            user.refreshTokenId = null;
+          }
           await user.save();
         }
       } catch (err) {
@@ -184,8 +215,9 @@ export const logout = async (req, res) => {
     res.clearCookie(cookieName, {
       path: "/api/auth",
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: process.env.COOKIE_SECURE === "true" ? true : process.env.NODE_ENV === "production",
+      sameSite: process.env.COOKIE_SAMESITE || (process.env.NODE_ENV === "production" ? "lax" : "lax"),
+      ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
     });
     return res.json({ message: "Logged out" });
   } catch (error) {

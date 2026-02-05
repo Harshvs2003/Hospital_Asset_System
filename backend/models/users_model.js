@@ -10,7 +10,7 @@ const UserSchema = new mongoose.Schema(
       enum: ["admin", "supervisor", "departmentUser"],
       default: "admin",
     },
-    refreshTokenId: { type: String, default: null }, // store latest refresh token jti
+    refreshTokenIds: { type: [String], default: [] }, // store active refresh token jtis
   },
   { timestamps: true }
 );

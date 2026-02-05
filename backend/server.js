@@ -40,7 +40,10 @@ app.use(limiter);
 // CORS config
 const DEFAULT_ORIGINS = ["https://hospital-asset-system.vercel.app", "http://localhost:5173", "https://app.assetops.in"];
 const FRONTEND = process.env.FRONTEND_ORIGIN;
-const allowedOrigins = FRONTEND ? [FRONTEND, ...DEFAULT_ORIGINS] : DEFAULT_ORIGINS;
+const extraOrigins = FRONTEND
+  ? FRONTEND.split(",").map((o) => o.trim()).filter(Boolean)
+  : [];
+const allowedOrigins = [...extraOrigins, ...DEFAULT_ORIGINS];
 
 app.use(
   cors({
