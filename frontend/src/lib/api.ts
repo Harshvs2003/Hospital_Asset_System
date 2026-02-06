@@ -80,6 +80,9 @@ export const post = async (path: string, data?: any, config?: any) =>
 export const put = async (path: string, data?: any, config?: any) =>
   (await api.put(path, data, config)).data;
 
+export const patch = async (path: string, data?: any, config?: any) =>
+  (await api.patch(path, data, config)).data;
+
 export const del = async (path: string, config?: any) =>
   (await api.delete(path, config)).data;
 

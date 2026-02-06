@@ -5,6 +5,7 @@ import {
   Package,
   Plus,
   AlertCircle,
+  ClipboardList,
   QrCode,
   BarChart3,
   Menu,
@@ -25,6 +26,7 @@ const Sidebar: React.FC = () => {
     { label: "Assets", icon: Package, path: "/assets" },
     { label: "Add Assets", icon: Plus, path: "/add-assets" },
     { label: "Complain", icon: AlertCircle, path: "/complain" },
+    { label: "Complaints", icon: ClipboardList, path: "/complaints" },
     { label: "QR Generator", icon: QrCode, path: "/qr-gen" },
     { label: "Report", icon: BarChart3, path: "/report" },
   ];

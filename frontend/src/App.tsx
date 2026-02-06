@@ -6,6 +6,8 @@ import Assets from './pages/Assets'
 import AssetDetails from './pages/AssetDetails'
 import AddAssets from './pages/AddAssets'
 import Complain from './pages/Complain'
+import Complaints from './pages/Complaints'
+import ComplaintDetails from './pages/ComplaintDetails'
 import QRGen from './pages/QRGen'
 import Report from './pages/Report'
 import Login from './pages/Login'
@@ -41,6 +43,8 @@ function App() {
           <Route path="/assets/:assetId" element={<ProtectedRoute><AssetDetails /></ProtectedRoute>} />
           <Route path="/add-assets" element={<ProtectedRoute><AddAssets /></ProtectedRoute>} />
           <Route path="/complain" element={<ProtectedRoute><Complain /></ProtectedRoute>} />
+          <Route path="/complaints" element={<ProtectedRoute><Complaints /></ProtectedRoute>} />
+          <Route path="/complaints/:complaintId" element={<ProtectedRoute><ComplaintDetails /></ProtectedRoute>} />
           <Route path="/qr-gen" element={<ProtectedRoute><QRGen /></ProtectedRoute>} />
           <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />

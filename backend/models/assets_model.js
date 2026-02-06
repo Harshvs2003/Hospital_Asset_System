@@ -59,6 +59,14 @@ const AssetSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    history: [
+        {
+            action: { type: String, required: true },
+            message: { type: String, required: true },
+            performedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+            performedAt: { type: Date, required: true }
+        }
+    ],
 
 },
 

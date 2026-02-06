@@ -32,9 +32,9 @@ type Complaint = {
   assetId?: string;
   type?: string;
   description?: string;
-  status?: string;
+  status?: "OPEN" | "SUPERVISOR_RESOLVED" | "CLOSED";
   createdAt?: string;
-  resolvedAt?: string | null;
+  supervisorResolvedAt?: string | null;
 };
 
 const priceFmt = (n?: number) =>
@@ -46,7 +46,7 @@ const AssetDetails: React.FC = () => {
   const [asset, setAsset] = React.useState<Asset | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [complaints, setComplaints] = React.useState<Complaint[]>([]);
+  const [activeComplaint, setActiveComplaint] = React.useState<Complaint | null>(null);
   const [complaintsLoading, setComplaintsLoading] = React.useState(false);
 
   // action state for quick actions
@@ -66,7 +66,7 @@ const AssetDetails: React.FC = () => {
   React.useEffect(() => {
     if (!assetId) return;
     fetchAsset();
-    fetchComplaints();
+    fetchActiveComplaint();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assetId]);
 
@@ -85,16 +85,16 @@ const AssetDetails: React.FC = () => {
     }
   };
 
-  const fetchComplaints = async () => {
+  const fetchActiveComplaint = async () => {
     if (!assetId) return;
     setComplaintsLoading(true);
     try {
-      // pass query string directly
-      const data = await get(`/complaints?assetId=${encodeURIComponent(String(assetId))}`);
-      setComplaints(Array.isArray(data) ? data : []);
+      const data = await get(`/complaints/active/byAsset/${encodeURIComponent(String(assetId))}`);
+      const complaint = data?.data || null;
+      setActiveComplaint(complaint);
     } catch (err) {
       console.error("Failed to load complaints:", err);
-      setComplaints([]);
+      setActiveComplaint(null);
     } finally {
       setComplaintsLoading(false);
     }
@@ -143,21 +143,10 @@ const AssetDetails: React.FC = () => {
       events.push({
         id: `hist-${i}`,
         title: h.action || "History",
-        location: h.location,
-        by: h.user,
-        date: h.date || null,
-        description: h.description,
-      })
-    );
-
-    complaints.forEach((c) =>
-      events.push({
-        id: c._id || `c-${Math.random()}`,
-        title: c.type || "Complaint filed",
-        location: undefined,
-        by: undefined,
-        date: c.createdAt || null,
-        description: c.description,
+        location: (h as any).location,
+        by: (h as any).user || (h as any).performedBy,
+        date: (h as any).date || (h as any).performedAt || null,
+        description: (h as any).description || (h as any).message,
       })
     );
 
@@ -269,6 +258,11 @@ const AssetDetails: React.FC = () => {
     // Navigate to the complaint page with this asset preselected
     const aid = asset.assetId || asset._id || "";
     navigate(`/complain?assetId=${encodeURIComponent(aid)}`);
+  };
+
+  const handleViewComplaint = () => {
+    if (!activeComplaint?._id) return;
+    navigate(`/complaints/${activeComplaint._id}`);
   };
 
   return (
@@ -610,22 +604,24 @@ const AssetDetails: React.FC = () => {
                   )}
 
                 <div>
-                  <h5 className="text-sm font-semibold text-gray-900 mb-2">Complaints</h5>
+                  <h5 className="text-sm font-semibold text-gray-900 mb-2">Active Complaint</h5>
                   {complaintsLoading ? (
-                    <div className="text-sm text-gray-500">Loading complaints...</div>
-                  ) : complaints.length === 0 ? (
-                    <div className="text-sm text-gray-500">No complaints</div>
+                    <div className="text-sm text-gray-500">Loading complaint...</div>
+                  ) : !activeComplaint ? (
+                    <div className="text-sm text-gray-500">No active complaints</div>
                   ) : (
-                    <ul className="space-y-2 w-full">
-                      {complaints.map((c) => (
-                        <li key={c._id} className="p-2 border rounded bg-gray-50 text-sm">
-                          <div className="font-medium text-gray-900">{c.type}</div>
-                          <div className="text-xs text-gray-600">{c.description}</div>
-                          <div className="text-xs text-gray-500 mt-1">Status: {c.status}</div>
-                          <div className="text-xs text-gray-400 mt-1">{shortDate(c.createdAt)}</div>
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="p-3 border rounded bg-gray-50 text-sm space-y-2">
+                      <div className="font-medium text-gray-900">{activeComplaint.type}</div>
+                      <div className="text-xs text-gray-600">{activeComplaint.description}</div>
+                      <div className="text-xs text-gray-500">Status: {activeComplaint.status}</div>
+                      <div className="text-xs text-gray-400">{shortDate(activeComplaint.createdAt)}</div>
+                      <button
+                        onClick={handleViewComplaint}
+                        className="w-full px-3 py-2 text-xs font-semibold text-blue-700 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                      >
+                        View Complaint
+                      </button>
+                    </div>
                   )}
                 </div>
               </>
