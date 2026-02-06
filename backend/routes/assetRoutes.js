@@ -8,16 +8,17 @@ import {
   updateAsset,
   deleteAsset,
 } from "../controllers/assetController.js";
+import { protect, blockWriteIfViewer } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/", addAsset);
-router.get("/", getAllAssets);
-router.get("/search", searchAssets);
-router.get("/byAssetId/:assetId", getAssetByCustomId);
-router.get("/:id", getAssetById);
-router.put("/:id", updateAsset);
-router.patch("/:id", updateAsset);
-router.delete("/:id", deleteAsset);
+router.post("/", protect, blockWriteIfViewer(), addAsset);
+router.get("/", protect, getAllAssets);
+router.get("/search", protect, searchAssets);
+router.get("/byAssetId/:assetId", protect, getAssetByCustomId);
+router.get("/:id", protect, getAssetById);
+router.put("/:id", protect, blockWriteIfViewer(), updateAsset);
+router.patch("/:id", protect, blockWriteIfViewer(), updateAsset);
+router.delete("/:id", protect, blockWriteIfViewer(), deleteAsset);
 
 export default router;

@@ -3,6 +3,7 @@ import React from "react";
 import { Search, Download, Printer, CheckSquare, Square } from "lucide-react";
 import { generateQRCodeURL } from "../utils/qrcode";
 import api, { get } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 
 type AssetMinimal = {
   _id?: string;
@@ -16,6 +17,8 @@ type AssetMinimal = {
 };
 
 const QRGenPage: React.FC = () => {
+  const { user } = useAuth();
+  const canUseRecent = user?.role === "ADMIN" || user?.role === "SUPERVISOR";
   const [mode, setMode] = React.useState<"recent" | "specific">("recent");
   const [recentAssets, setRecentAssets] = React.useState<AssetMinimal[]>([]);
   const [selectedIds, setSelectedIds] = React.useState<Record<string, boolean>>(
@@ -38,6 +41,12 @@ const QRGenPage: React.FC = () => {
     if (mode === "specific") fetchSpecificAssets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
+
+  React.useEffect(() => {
+    if (!canUseRecent && mode === "recent") {
+      setMode("specific");
+    }
+  }, [canUseRecent, mode]);
 
   // ================= FETCH RECENT =================
   const fetchRecentAssets = async () => {
@@ -247,12 +256,14 @@ const QRGenPage: React.FC = () => {
 
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex gap-2 items-center">
-          <button
-            onClick={() => setMode("recent")}
-            className={`px-3 py-2 rounded ${mode === "recent" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"}`}
-          >
-            Recently added
-          </button>
+          {canUseRecent && (
+            <button
+              onClick={() => setMode("recent")}
+              className={`px-3 py-2 rounded ${mode === "recent" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"}`}
+            >
+              Recently added
+            </button>
+          )}
           <button
             onClick={() => setMode("specific")}
             className={`px-3 py-2 rounded ${mode === "specific" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"}`}
@@ -262,7 +273,7 @@ const QRGenPage: React.FC = () => {
         </div>
       </div>
 
-      {mode === "recent" ? (
+      {mode === "recent" && canUseRecent ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-white rounded-lg shadow p-4">
@@ -418,7 +429,7 @@ const QRGenPage: React.FC = () => {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
-                className="w-205 pl-10 pr-3 py-2 border rounded"
+                className="w-full pl-10 pr-3 py-2 border rounded"
                 placeholder="Search by asset id or name..."
                 value={query}
                 onChange={(e) => {
@@ -445,20 +456,22 @@ const QRGenPage: React.FC = () => {
               </select>
 
               {/* Department filter */}
-              <select
-                value={departmentFilter}
-                onChange={(e) => {
-                  setDepartmentFilter(e.target.value);
-                }}
-                className="px-8 py-2 border rounded text-sm bg-white"
-              >
-                <option value="">All Departments</option>
-                {departments.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
+              {user?.role !== "DEPARTMENT_USER" && (
+                <select
+                  value={departmentFilter}
+                  onChange={(e) => {
+                    setDepartmentFilter(e.target.value);
+                  }}
+                  className="px-8 py-2 border rounded text-sm bg-white"
+                >
+                  <option value="">All Departments</option>
+                  {departments.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 

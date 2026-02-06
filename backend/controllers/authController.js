@@ -6,6 +6,7 @@ import {
   createRefreshToken,
   verifyRefreshToken,
 } from "../utils/tokenUtils.js";
+import { isValidDepartmentId } from "../config/departments.js";
 
 // helper to set refresh cookie
 const sendRefreshCookie = (res, token) => {
@@ -32,16 +33,31 @@ const sendRefreshCookie = (res, token) => {
 
 export const register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, departmentId } = req.body;
     if (!name || !email || !password)
       return res.status(400).json({ message: "Missing fields" });
+
+    const normalizedRole =
+      typeof role === "string" ? role.toUpperCase() : "DEPARTMENT_USER";
+    if (normalizedRole === "DEPARTMENT_USER" && !departmentId) {
+      return res.status(400).json({ message: "departmentId is required" });
+    }
+    if (departmentId && !isValidDepartmentId(departmentId)) {
+      return res.status(400).json({ message: "Invalid departmentId" });
+    }
 
     const existing = await User.findOne({ email });
     if (existing)
       return res.status(400).json({ message: "Email already registered" });
 
     const hashed = await bcrypt.hash(password, 10);
-    const user = await User.create({ name, email, password: hashed, role });
+    const user = await User.create({
+      name,
+      email,
+      password: hashed,
+      role: normalizedRole,
+      departmentId: departmentId || null,
+    });
 
     // create tokens
     const accessToken = createAccessToken(user);

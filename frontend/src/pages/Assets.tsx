@@ -3,6 +3,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, Search, Funnel } from "lucide-react";
 import { get } from "../lib/api"; // <- adjust path if needed
+import { useAuth } from "../context/AuthContext";
 
 type Asset = {
   _id?: string;
@@ -28,6 +29,8 @@ const AssetsPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = React.useState<string>("All");
   const [selectedStatus, setSelectedStatus] = React.useState<string>("All");
   const [selectedDepartment, setSelectedDepartment] = React.useState<string>("All");
+  const { user } = useAuth();
+  const isDeptUser = user?.role === "DEPARTMENT_USER";
   const navigate = useNavigate();
 
   React.useEffect(() => {
@@ -79,11 +82,14 @@ const AssetsPage: React.FC = () => {
 
       const matchesCategory = selectedCategory === "All" || (a.category || "") === selectedCategory;
       const matchesStatus = selectedStatus === "All" || (a.status || "") === selectedStatus;
-      const matchesDepartment = selectedDepartment === "All" || (a.departmentName || "") === selectedDepartment;
+      const matchesDepartment =
+        isDeptUser ||
+        selectedDepartment === "All" ||
+        (a.departmentName || "") === selectedDepartment;
 
       return matchesQuery && matchesCategory && matchesStatus && matchesDepartment;
     });
-  }, [assets, query, selectedCategory, selectedStatus, selectedDepartment]);
+  }, [assets, query, selectedCategory, selectedStatus, selectedDepartment, isDeptUser]);
 
   const fmtNumber = (n: number) => n.toLocaleString();
 
@@ -182,23 +188,25 @@ const AssetsPage: React.FC = () => {
             </select>
           </div>
 
-          <div>
-            <select
-              value={selectedDepartment}
-              onChange={(e) => {
-                setSelectedDepartment(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
-            >
-              <option value="All">Department</option>
-              {departments.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </div>
+          {!isDeptUser && (
+            <div>
+              <select
+                value={selectedDepartment}
+                onChange={(e) => {
+                  setSelectedDepartment(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
+              >
+                <option value="All">Department</option>
+                {departments.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 

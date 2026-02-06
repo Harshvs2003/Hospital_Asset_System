@@ -25,19 +25,37 @@ const getThreeLetterCode = (str) => {
   return code.slice(0, 3);
 };
 
+const getDeptFilter = (req) => {
+  if (req.user?.role === "DEPARTMENT_USER") {
+    return { departmentId: req.user.departmentId };
+  }
+  return {};
+};
+
+const ensureDeptAccess = (req, asset) => {
+  if (req.user?.role === "DEPARTMENT_USER") {
+    return asset.departmentId === req.user.departmentId;
+  }
+  return true;
+};
+
 // POST: Add Asset
 export const addAsset = async (req, res) => {
   try {
     const { subcategory, departmentName } = req.body;
+    if (req.user?.role === "DEPARTMENT_USER") {
+      req.body.departmentId = req.user.departmentId;
+    }
 
     // Get 3-letter codes from department name and equipment/subcategory
     const deptCode = getThreeLetterCode(departmentName || "GEN");
     const equipCode = getThreeLetterCode(subcategory || "OTH");
 
     // Find the last asset with same department and equipment to increment number
-    const last = await Asset.findOne({ 
+    const last = await Asset.findOne({
       departmentName,
-      subcategory
+      subcategory,
+      ...getDeptFilter(req),
     })
       .sort({ createdAt: -1 })
       .lean();
@@ -86,7 +104,7 @@ export const addAsset = async (req, res) => {
 // GET: All Assets
 export const getAllAssets = async (req, res) => {
   try {
-    const assets = await Asset.find({});
+    const assets = await Asset.find(getDeptFilter(req));
     const assetsWithIST = assets.map((asset) => ({
       ...asset.toObject(),
       storeindate: formatIST(asset.storeindate),
@@ -111,6 +129,7 @@ export const searchAssets = async (req, res) => {
   try {
     const { query } = req.query;
     const assets = await Asset.find({
+      ...getDeptFilter(req),
       $or: [
         { name: { $regex: query, $options: "i" } },
         { assetId: { $regex: query, $options: "i" } },
@@ -130,7 +149,10 @@ export const searchAssets = async (req, res) => {
 // GET: Asset by custom ID
 export const getAssetByCustomId = async (req, res) => {
   try {
-    const asset = await Asset.findOne({ assetId: req.params.assetId });
+    const asset = await Asset.findOne({
+      assetId: req.params.assetId,
+      ...getDeptFilter(req),
+    });
     if (!asset) return res.status(404).json({ message: "Asset not found" });
 
     const response = {
@@ -158,6 +180,9 @@ export const getAssetById = async (req, res) => {
   try {
     const asset = await Asset.findById(req.params.id);
     if (!asset) return res.status(404).json({ message: "Asset not found" });
+    if (!ensureDeptAccess(req, asset)) {
+      return res.status(404).json({ message: "Asset not found" });
+    }
 
     const response = {
       ...asset.toObject(),
@@ -182,6 +207,9 @@ export const getAssetById = async (req, res) => {
 // PUT & PATCH: Update Asset
 export const updateAsset = async (req, res) => {
   try {
+    if (req.user?.role === "DEPARTMENT_USER") {
+      req.body.departmentId = req.user.departmentId;
+    }
     const updatedAsset = await Asset.findByIdAndUpdate(
       req.params.id,
       req.body,
@@ -189,6 +217,9 @@ export const updateAsset = async (req, res) => {
     );
     if (!updatedAsset)
       return res.status(404).json({ message: "Asset not found" });
+    if (!ensureDeptAccess(req, updatedAsset)) {
+      return res.status(404).json({ message: "Asset not found" });
+    }
     res.status(200).json(updatedAsset);
   } catch (error) {
     console.error("Error updating asset:", error);
@@ -202,6 +233,9 @@ export const deleteAsset = async (req, res) => {
     const deletedAsset = await Asset.findByIdAndDelete(req.params.id);
     if (!deletedAsset)
       return res.status(404).json({ message: "Asset not found" });
+    if (!ensureDeptAccess(req, deletedAsset)) {
+      return res.status(404).json({ message: "Asset not found" });
+    }
 
     res.status(200).json({
       message: `${deletedAsset.name} (${deletedAsset.assetId}) deleted successfully`,

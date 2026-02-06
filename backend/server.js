@@ -6,6 +6,7 @@ import connectDB from "./config/db.js";
 import assetRoutes from "./routes/assetRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import complaintRoutes from "./routes/complaintRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 
 import cors from "cors";
 import helmet from "helmet";
@@ -64,6 +65,7 @@ app.use(
 app.use("/api/auth", authRoutes);
 app.use("/api/assets", assetRoutes);
 app.use("/api/complaints", complaintRoutes);
+app.use("/api/users", userRoutes);
 
 // health endpoint for platform checks
 app.get("/_health", (_req, res) => res.status(200).json({ status: "ok", uptime: process.uptime() }));

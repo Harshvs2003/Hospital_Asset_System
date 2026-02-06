@@ -4,13 +4,15 @@ import { useNavigate, Link } from "react-router-dom";
 import { UserPlus, AlertCircle, Loader } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { post } from "../lib/api";
+import { DEPARTMENTS } from "../data/departments";
 
 const Register: React.FC = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole] = useState<string>("departmentUser");
+  const [role, setRole] = useState<string>("DEPARTMENT_USER");
+  const [departmentId, setDepartmentId] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -23,6 +25,10 @@ const Register: React.FC = () => {
     // Validate inputs
     if (!name || !email || !password || !confirmPassword) {
       setError("All fields are required");
+      return;
+    }
+    if (role === "DEPARTMENT_USER" && !departmentId) {
+      setError("Please select a department");
       return;
     }
 
@@ -40,7 +46,13 @@ const Register: React.FC = () => {
 
     try {
       // call centralized API helper (reads VITE_API_BASE)
-      await post("/auth/register", { name, email: email.trim(), password, role });
+      await post("/auth/register", {
+        name,
+        email: email.trim(),
+        password,
+        role,
+        departmentId: role === "DEPARTMENT_USER" ? departmentId : null,
+      });
 
       // Auto-login after successful registration
       await login(email.trim(), password);
@@ -156,11 +168,34 @@ const Register: React.FC = () => {
               onChange={(e) => setRole(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
             >
-              <option value="departmentUser">Department User</option>
-              <option value="supervisor">Supervisor</option>
-              <option value="admin">Admin</option>
+              <option value="DEPARTMENT_USER">Department User</option>
+              <option value="SUPERVISOR">Supervisor</option>
+              <option value="VIEWER">Viewer</option>
+              <option value="ADMIN">Admin</option>
             </select>
           </div>
+
+          {role === "DEPARTMENT_USER" && (
+            <div>
+              <label htmlFor="departmentId" className="block text-sm font-medium text-gray-700 mb-2">
+                Department
+              </label>
+              <select
+                id="departmentId"
+                value={departmentId}
+                onChange={(e) => setDepartmentId(e.target.value)}
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+              >
+                <option value="">Select department</option>
+                {DEPARTMENTS.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Submit Button */}
           <button
