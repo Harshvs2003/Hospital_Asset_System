@@ -19,6 +19,9 @@ type Complaint = {
   history?: Array<{
     action: string;
     message: string;
+    performedBy?: { name?: string; role?: string } | string | null;
+    performedByName?: string | null;
+    performedByRole?: string | null;
     performedAt: string;
   }>;
 };
@@ -105,6 +108,14 @@ const ComplaintDetails: React.FC = () => {
                   <li key={`${h.action}-${i}`} className="rounded-lg border border-slate-200 p-3">
                     <div className="text-xs font-semibold text-slate-700">{h.action}</div>
                     <div className="text-xs text-slate-500">{h.message}</div>
+                    <div className="text-xs text-slate-400">
+                      By:{" "}
+                      {h.performedByName ||
+                        (typeof h.performedBy === "string"
+                          ? h.performedBy
+                          : h.performedBy?.name) ||
+                        "-"}
+                    </div>
                     <div className="text-xs text-slate-400">{shortDate(h.performedAt)}</div>
                   </li>
                 ))}

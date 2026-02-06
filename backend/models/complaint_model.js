@@ -47,6 +47,8 @@ const ComplaintSchema = new mongoose.Schema(
           ref: "User",
           required: true,
         },
+        performedByName: { type: String, default: null },
+        performedByRole: { type: String, default: null },
         performedAt: { type: Date, required: true },
       },
     ],

@@ -61,9 +61,11 @@ const AssetSchema = new mongoose.Schema({
     },
     history: [
         {
+            type: { type: String, required: false },
+            complaintId: { type: mongoose.Schema.Types.ObjectId, required: false },
             action: { type: String, required: true },
             message: { type: String, required: true },
-            performedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+            performedBy: { type: mongoose.Schema.Types.Mixed, required: false },
             performedAt: { type: Date, required: true }
         }
     ],

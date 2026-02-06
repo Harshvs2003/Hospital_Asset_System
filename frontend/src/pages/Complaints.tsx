@@ -137,7 +137,7 @@ const ComplaintsPage: React.FC = () => {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900 p-6 text-white shadow-lg">
+      <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-slate-900 via-slate-800 to-blue-900 p-6 text-white shadow-lg">
         <div className="absolute right-6 top-6 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>

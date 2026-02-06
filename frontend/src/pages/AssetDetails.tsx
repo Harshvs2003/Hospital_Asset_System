@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, MapPin, Calendar, DollarSign, QrCode } from "lucide-react";
 import { generateQRCodeURL } from "../utils/qrcode";
 import api, { get } from "../lib/api"; // <-- uses centralized api helpers
+import AssetHistoryTimeline from "../components/AssetHistoryTimeline";
 
 type Asset = {
   _id?: string;
@@ -24,7 +25,7 @@ type Asset = {
   updatedAt?: string;
   price?: number;
   assignedTo?: string;
-  history?: Array<{ action?: string; date?: string; location?: string; user?: string; description?: string }>;
+  history?: Array<any>;
 };
 
 type Complaint = {
@@ -118,55 +119,6 @@ const AssetDetails: React.FC = () => {
         return "bg-yellow-100 text-yellow-800";
     }
   };
-
-  // build chronological events: installation/received + complaints + history
-  const events: Array<{
-    id: string;
-    title: string;
-    location?: string;
-    by?: string;
-    date?: string | null;
-    description?: string;
-  }> = [];
-
-  if (asset) {
-    const receivedDate = asset.storeindate || asset.installdate || asset.createdAt || null;
-    events.push({
-      id: `received-${asset._id || asset.assetId}`,
-      title: "Asset received and registered",
-      location: asset.location,
-      by: "Admin",
-      date: receivedDate,
-    });
-
-    (asset.history || []).forEach((h, i) =>
-      events.push({
-        id: `hist-${i}`,
-        title: h.action || "History",
-        location: (h as any).location,
-        by: (h as any).user || (h as any).performedBy,
-        date: (h as any).date || (h as any).performedAt || null,
-        description: (h as any).description || (h as any).message,
-      })
-    );
-
-    if (asset.installdate) {
-      events.push({
-        id: `installed-${asset._id || asset.assetId}`,
-        title: "Installed",
-        location: asset.location,
-        by: "Installer",
-        date: asset.installdate,
-      });
-    }
-
-    // sort ascending by date (oldest first)
-    events.sort((a, b) => {
-      const da = a.date ? new Date(a.date).getTime() : 0;
-      const db = b.date ? new Date(b.date).getTime() : 0;
-      return da - db;
-    });
-  }
 
   // helper to extract YYYY-MM-DD
   const shortDate = (d?: string | null) => {
@@ -365,36 +317,11 @@ const AssetDetails: React.FC = () => {
             </div>
 
             <div className="mt-4">
-              {(!asset || (events.length === 0 && !complaintsLoading)) ? (
+              {!asset ? (
                 <div className="text-sm text-gray-500">No history available.</div>
               ) : (
-                <div className="space-y-4 mt-3">
-                  {events.map((ev, index) => (
-                    <div key={ev.id} className="flex">
-                      <div className="flex flex-col items-center mr-4">
-                        <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
-                        {index < events.length - 1 && <div className="w-0.5 h-full bg-gray-300 mt-1"></div>}
-                      </div>
-
-                      <div className="pb-8 flex-1">
-                        <div className="flex justify-between items-start mb-1">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{ev.title}</p>
-                            {ev.location && (
-                              <p className="text-xs text-gray-600 mt-1 flex items-center">
-                                <MapPin className="h-3 w-3 mr-1" />
-                                {ev.location}
-                              </p>
-                            )}
-                            {ev.description && <p className="text-sm text-gray-700 mt-1">{ev.description}</p>}
-                            <p className="text-xs text-gray-500 mt-1">By: {ev.by || "-"}</p>
-                          </div>
-
-                          <div className="text-xs text-gray-500 ml-4">{ev.date ? shortDate(ev.date) : ""}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="mt-3">
+                  <AssetHistoryTimeline history={(asset.history || []) as any} />
                 </div>
               )}
             </div>

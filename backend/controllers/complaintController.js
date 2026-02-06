@@ -65,13 +65,17 @@ export const createComplaint = async (req, res) => {
       action: "Complaint Created",
       message: "Complaint Created",
       performedBy: req.user._id,
+      performedByName: req.user.name || null,
+      performedByRole: req.user.role || null,
       performedAt,
     };
     appendComplaintHistory(c, createdEntry);
     await appendAssetHistory(assetId || null, {
+      type: "COMPLAINT_EVENT",
+      complaintId: c._id,
       action: "Complaint filed",
       message: "Complaint filed",
-      performedBy: req.user._id,
+      performedBy: { id: req.user._id, name: req.user.name, role: req.user.role },
       performedAt,
     });
 
@@ -153,12 +157,16 @@ export const supervisorResolveComplaint = async (req, res) => {
       action: "Supervisor Resolved",
       message: "Supervisor Resolved",
       performedBy: req.user._id,
+      performedByName: req.user.name || null,
+      performedByRole: req.user.role || null,
       performedAt,
     });
     await appendAssetHistory(complaint.assetId, {
+      type: "COMPLAINT_EVENT",
+      complaintId: complaint._id,
       action: "Supervisor marked resolved",
       message: "Supervisor marked resolved",
-      performedBy: req.user._id,
+      performedBy: { id: req.user._id, name: req.user.name, role: req.user.role },
       performedAt,
     });
 
@@ -203,12 +211,16 @@ export const closeComplaint = async (req, res) => {
       action: "Department Closed",
       message: "Department Closed",
       performedBy: req.user._id,
+      performedByName: req.user.name || null,
+      performedByRole: req.user.role || null,
       performedAt,
     });
     await appendAssetHistory(complaint.assetId, {
+      type: "COMPLAINT_EVENT",
+      complaintId: complaint._id,
       action: "Department accepted and closed",
       message: "Department accepted and closed",
-      performedBy: req.user._id,
+      performedBy: { id: req.user._id, name: req.user.name, role: req.user.role },
       performedAt,
     });
 
@@ -256,12 +268,16 @@ export const reopenComplaint = async (req, res) => {
       action: "Department Reopened",
       message: "Department Reopened",
       performedBy: req.user._id,
+      performedByName: req.user.name || null,
+      performedByRole: req.user.role || null,
       performedAt,
     });
     await appendAssetHistory(complaint.assetId, {
+      type: "COMPLAINT_EVENT",
+      complaintId: complaint._id,
       action: "Department rejected and reopened",
       message: "Department rejected and reopened",
-      performedBy: req.user._id,
+      performedBy: { id: req.user._id, name: req.user.name, role: req.user.role },
       performedAt,
     });
 
