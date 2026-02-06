@@ -178,9 +178,19 @@ const QRGenPage: React.FC = () => {
 
     win.document.write(`
       <html>
+        <head>
+          <style>
+            @media print {
+              .print-controls { display: none !important; }
+              body { padding: 0; }
+            }
+          </style>
+        </head>
         <body style="font-family:system-ui;padding:16px">
-          <button onclick="window.print()">Print</button>
-          <button onclick="window.close()">Close</button>
+          <div class="print-controls" style="display:flex;gap:8px;margin-bottom:12px;">
+            <button onclick="window.print()">Print</button>
+            <button onclick="window.close()">Close</button>
+          </div>
           <div>${htmlParts.join("")}</div>
         </body>
       </html>
