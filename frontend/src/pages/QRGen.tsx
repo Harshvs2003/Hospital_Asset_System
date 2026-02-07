@@ -26,6 +26,8 @@ const QRGenPage: React.FC = () => {
   );
   const [loading, setLoading] = React.useState(false);
   const [actionMessage, setActionMessage] = React.useState<string | null>(null);
+  const [recentPage, setRecentPage] = React.useState(1);
+  const RECENT_PAGE_SIZE = 12;
   // specific mode
   const [query, setQuery] = React.useState("");
   const [selectedAsset, setSelectedAsset] = React.useState<AssetMinimal | null>(
@@ -53,13 +55,19 @@ const QRGenPage: React.FC = () => {
     setLoading(true);
     setActionMessage(null);
     try {
-      // let arr: AssetMinimal[] = [];
-
-      const data = await get("/assets?per=100&sort=createdAt_desc");
+      const data = await get("/assets");
       const arr = Array.isArray(data) ? data : [];
+      const recent = arr
+        .filter((a) => !a.qrGenerated)
+        .sort((a, b) => {
+          const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return db - da;
+        });
 
-      setRecentAssets(arr.filter((a) => !a.qrGenerated));
+      setRecentAssets(recent);
       setSelectedIds({});
+      setRecentPage(1);
     } catch (err) {
       console.error(err);
       setActionMessage("Failed to load recent assets");
@@ -124,7 +132,7 @@ const QRGenPage: React.FC = () => {
 
   const selectAll = () => {
     const all: Record<string, boolean> = {};
-    recentAssets.forEach((a) => a._id && (all[a._id] = true));
+    currentRecentAssets.forEach((a) => a._id && (all[a._id] = true));
     setSelectedIds(all);
   };
 
@@ -132,6 +140,15 @@ const QRGenPage: React.FC = () => {
 
   const getSelectedAssets = () =>
     recentAssets.filter((a) => a._id && selectedIds[a._id]);
+
+  const totalRecentPages = Math.max(
+    1,
+    Math.ceil(recentAssets.length / RECENT_PAGE_SIZE),
+  );
+  const currentRecentAssets = React.useMemo(() => {
+    const start = (recentPage - 1) * RECENT_PAGE_SIZE;
+    return recentAssets.slice(start, start + RECENT_PAGE_SIZE);
+  }, [recentAssets, recentPage]);
 
   // ================= MARK GENERATED =================
   const markAsGeneratedServerSide = async (ids: string[]) => {
@@ -180,10 +197,12 @@ const QRGenPage: React.FC = () => {
       <html>
         <head>
           <style>
+            @page { size: A4 portrait; margin: 0; }
             @media print {
               .print-controls { display: none !important; }
               body { padding: 0; }
             }
+            body { zoom: 0.93; }
           </style>
         </head>
         <body style="font-family:system-ui;padding:16px">
@@ -315,7 +334,7 @@ const QRGenPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {recentAssets.map((a) => (
+                  {currentRecentAssets.map((a) => (
                     <div
                       key={a._id || a.assetId}
                       className="flex items-center justify-between p-2 border rounded hover:bg-gray-50"
@@ -361,27 +380,51 @@ const QRGenPage: React.FC = () => {
               )}
             </div>
 
-            <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
-                Selected: {Object.values(selectedIds).filter(Boolean).length}
+            <div className="bg-white rounded-lg shadow p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Selected: {Object.values(selectedIds).filter(Boolean).length}
+                </div>
+                <div className="text-sm text-gray-600">
+                  Page {recentPage} of {totalRecentPages}
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => openPrintView(getSelectedAssets())}
-                  disabled={loading || getSelectedAssets().length === 0}
-                  className="px-3 py-2 bg-white border rounded text-sm hover:bg-gray-50 flex items-center gap-2"
-                >
-                  <Printer className="w-4 h-4" /> Open Print View
-                </button>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setRecentPage((p) => Math.max(1, p - 1))}
+                    disabled={recentPage === 1}
+                    className="px-3 py-2 border rounded text-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    onClick={() => setRecentPage((p) => Math.min(totalRecentPages, p + 1))}
+                    disabled={recentPage >= totalRecentPages}
+                    className="px-3 py-2 border rounded text-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    Next
+                  </button>
+                </div>
 
-                <button
-                  onClick={() => downloadPNGs(getSelectedAssets())}
-                  disabled={loading || getSelectedAssets().length === 0}
-                  className="px-3 py-2 bg-blue-600 text-white rounded text-sm flex items-center gap-2"
-                >
-                  <Download className="w-4 h-4" /> Download PNGs
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => openPrintView(getSelectedAssets())}
+                    disabled={loading || getSelectedAssets().length === 0}
+                    className="px-3 py-2 bg-white border rounded text-sm hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <Printer className="w-4 h-4" /> Open Print View
+                  </button>
+
+                  <button
+                    onClick={() => downloadPNGs(getSelectedAssets())}
+                    disabled={loading || getSelectedAssets().length === 0}
+                    className="px-3 py-2 bg-blue-600 text-white rounded text-sm flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" /> Download PNGs
+                  </button>
+                </div>
               </div>
             </div>
 
