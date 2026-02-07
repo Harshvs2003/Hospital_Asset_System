@@ -40,7 +40,7 @@ const Sidebar: React.FC = () => {
 
   return (
     <aside
-      className={`${isOpen ? "w-64" : "w-20"} bg-gray-800 text-white transition-all duration-300 ease-in-out flex flex-col shadow-lg`}
+      className={`${isOpen ? "w-56" : "w-20"} bg-gray-800 text-white transition-all duration-300 ease-in-out flex flex-col shadow-lg`}
     >
       <div className="flex items-center justify-between p-4 border-b border-gray-700">
         {isOpen && (
