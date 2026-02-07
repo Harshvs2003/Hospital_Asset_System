@@ -69,7 +69,7 @@ const Sidebar: React.FC = () => {
               }`}
               title={!isOpen ? item.label : ""}
             >
-              <Icon size={20} className="flex-shrink-0" />
+              <Icon size={20} className="shrink-0" />
               {isOpen && <span className="text-sm font-medium">{item.label}</span>}
             </Link>
           );
@@ -81,7 +81,7 @@ const Sidebar: React.FC = () => {
         {user && isOpen && (
           <div className="bg-gray-700 rounded-lg p-3">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center shrink-0">
                 <User size={16} />
               </div>
               <div className="min-w-0 flex-1">
@@ -97,7 +97,7 @@ const Sidebar: React.FC = () => {
           className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-red-600 hover:text-white transition-all duration-200"
           title="Logout"
         >
-          <LogOut size={20} className="flex-shrink-0" />
+          <LogOut size={20} className="shrink-0" />
           {isOpen && <span className="text-sm font-medium">Logout</span>}
         </button>
       </div>
