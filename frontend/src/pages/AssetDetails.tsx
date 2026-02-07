@@ -1,7 +1,7 @@
 // src/pages/AssetDetails.tsx
 import React from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Calendar, DollarSign, QrCode } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, IndianRupee, QrCode, Download } from "lucide-react";
 import { generateQRCodeURL } from "../utils/qrcode";
 import api, { get } from "../lib/api"; // <-- uses centralized api helpers
 import AssetHistoryTimeline from "../components/AssetHistoryTimeline";
@@ -63,6 +63,10 @@ const AssetDetails: React.FC = () => {
   const [assignModalValue, setAssignModalValue] = React.useState("");
   const [departmentIdModalValue, setDepartmentIdModalValue] = React.useState("");
   const [departmentNameModalValue, setDepartmentNameModalValue] = React.useState("");
+  const [showHistoryExportModal, setShowHistoryExportModal] = React.useState(false);
+  const [historyFromDate, setHistoryFromDate] = React.useState("");
+  const [historyToDate, setHistoryToDate] = React.useState("");
+  const [historyFull, setHistoryFull] = React.useState(true);
 
   React.useEffect(() => {
     if (!assetId) return;
@@ -129,6 +133,181 @@ const AssetDetails: React.FC = () => {
     } catch {
       return String(d).slice(0, 10);
     }
+  };
+
+  const formatDateTime = (d?: string | null) => {
+    if (!d) return "-";
+    try {
+      return new Date(d).toLocaleString();
+    } catch {
+      return String(d);
+    }
+  };
+
+  const getHistoryList = () => {
+    const list = Array.isArray(asset?.history) ? asset?.history : [];
+    if (!list.length) return [];
+    if (historyFull) return list;
+    const from = historyFromDate ? new Date(`${historyFromDate}T00:00:00`) : null;
+    const to = historyToDate ? new Date(`${historyToDate}T23:59:59`) : null;
+    return list.filter((h: any) => {
+      const at = h?.performedAt ? new Date(h.performedAt) : null;
+      if (!at || Number.isNaN(at.getTime())) return false;
+      if (from && at < from) return false;
+      if (to && at > to) return false;
+      return true;
+    });
+  };
+
+  const buildPrintHtml = (history: any[]) => {
+    const HOSPITAL_NAME = "YOUR HOSPITAL NAME";
+    const assetInfoItems = [
+      ["Asset Name", asset?.name || "-"],
+      ["Asset ID", asset?.assetId || asset?._id || "-"],
+      ["Category", asset?.category || "-"],
+      ["Subcategory", asset?.subcategory || "-"],
+      ["Status", asset?.status || "-"],
+      ["Location", asset?.location || "-"],
+      ["Department ID", asset?.departmentId || "-"],
+      ["Department Name", asset?.departmentName || "-"],
+      ["Purchase Date", shortDate(asset?.purchaseDate)],
+      ["Service Date", shortDate(asset?.lastServiceDate)],
+      ["Install Date", shortDate(asset?.installdate)],
+      ["Contract Expiry", shortDate(asset?.contractExpiryDate)],
+    ];
+
+    const historyRows = history
+      .map((h: any, idx: number) => {
+        const performedBy =
+          h?.performedBy?.name ||
+          (typeof h?.performedBy === "string" ? h.performedBy : "") ||
+          "-";
+        const role = h?.performedBy?.role || "-";
+        return `
+          <tr>
+            <td>${idx + 1}</td>
+            <td>${formatDateTime(h?.performedAt)}</td>
+            <td>${h?.action || "-"}</td>
+            <td>${h?.message || "-"}</td>
+            <td>${performedBy}</td>
+            <td>${role}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    return `
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Asset History</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
+            .header { text-align: center; margin-bottom: 16px; }
+            .hospital { font-size: 20px; font-weight: 700; }
+            .meta { font-size: 12px; color: #555; }
+            .info-box { border: 1px solid #ddd; padding: 12px; border-radius: 8px; margin: 16px 0; }
+            .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 16px; font-size: 12px; }
+            .info-item { border: 1px solid #eee; padding: 6px 8px; border-radius: 6px; }
+            .info-label { font-weight: 700; font-size: 11px; color: #555; }
+            .info-value { font-size: 12px; color: #111; margin-top: 2px; }
+            h3 { margin: 18px 0 8px; font-size: 14px; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th, td { border: 1px solid #ddd; padding: 6px 8px; vertical-align: top; }
+            th { background: #f5f5f5; text-align: left; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="hospital">${HOSPITAL_NAME}</div>
+            <div class="meta">Asset History Report</div>
+          </div>
+          <div class="info-box">
+            <div class="info-grid">
+              ${assetInfoItems
+                .map(
+                  ([label, value]) => `
+                    <div class="info-item">
+                      <div class="info-label">${label}</div>
+                      <div class="info-value">${value}</div>
+                    </div>
+                  `
+                )
+                .join("")}
+            </div>
+          </div>
+          <h3>Asset History</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Date</th>
+                <th>Action</th>
+                <th>Message</th>
+                <th>Performed By</th>
+                <th>Role</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${historyRows || `<tr><td colspan="6">No history found for selected range.</td></tr>`}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+  };
+
+  const handlePrintHistory = () => {
+    if (!asset) return;
+    const history = getHistoryList();
+    const html = buildPrintHtml(history);
+    const w = window.open("", "_blank", "width=900,height=700");
+    if (!w) return;
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    w.print();
+  };
+
+  const handleExportCsv = () => {
+    if (!asset) return;
+    const history = getHistoryList();
+    const headers = [
+      "Date",
+      "Action",
+      "Message",
+      "Performed By",
+      "Role",
+      "Type",
+      "Complaint ID",
+    ];
+    const rows = history.map((h: any) => [
+      formatDateTime(h?.performedAt),
+      h?.action || "",
+      h?.message || "",
+      h?.performedBy?.name || (typeof h?.performedBy === "string" ? h.performedBy : ""),
+      h?.performedBy?.role || "",
+      h?.type || "",
+      h?.complaintId || "",
+    ]);
+    const csv = [
+      headers.join(","),
+      ...rows.map((r) =>
+        r.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${asset.assetId || asset._id || "asset"}_history.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   };
 
   // --- Quick action helpers ---
@@ -260,7 +439,7 @@ const AssetDetails: React.FC = () => {
                   <div className="font-medium text-gray-900">{asset.location || "-"}</div>
 
                   <div className="mt-4 text-xs text-gray-500 flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-gray-400" /> Asset Value
+                    <IndianRupee className="w-4 h-4 text-gray-400" /> Asset Value
                   </div>
                   <div className="font-medium text-gray-900">{priceFmt(asset.price)}</div>
                 </div>
@@ -313,7 +492,16 @@ const AssetDetails: React.FC = () => {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">Asset History</h3>
-              <div className="text-sm text-gray-500">{asset?.installdate ? shortDate(asset.installdate) : ""}</div>
+                <div className="flex items-center gap-3">
+                  <div className="text-sm text-gray-500">{asset?.installdate ? shortDate(asset.installdate) : ""}</div>
+                  <button
+                    onClick={() => setShowHistoryExportModal(true)}
+                  className="inline-flex items-center gap-2 px-3 py-1 text-sm border rounded hover:bg-gray-50"
+                  >
+                  <Download className="w-4 h-4 text-gray-600" />
+                  Download
+                  </button>
+                </div>
             </div>
 
             <div className="mt-4">
@@ -397,6 +585,75 @@ const AssetDetails: React.FC = () => {
                 </div>
 
                 {actionMessage && <div className="text-sm text-gray-700 text-center">{actionMessage}</div>}
+
+                {showHistoryExportModal && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div
+                      className="absolute inset-0 bg-black opacity-30"
+                      onClick={() => setShowHistoryExportModal(false)}
+                    />
+                    <div className="bg-white rounded-lg shadow-lg p-6 z-10 w-96">
+                      <h4 className="text-lg font-semibold mb-4">Export Asset History</h4>
+                      <div className="mb-3">
+                        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={historyFull}
+                            onChange={(e) => setHistoryFull(e.target.checked)}
+                          />
+                          Full history (ignore date range)
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">From</label>
+                          <input
+                            type="date"
+                            value={historyFromDate}
+                            onChange={(e) => setHistoryFromDate(e.target.value)}
+                            disabled={historyFull}
+                            className="w-full px-2 py-1 border rounded text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">To</label>
+                          <input
+                            type="date"
+                            value={historyToDate}
+                            onChange={(e) => setHistoryToDate(e.target.value)}
+                            disabled={historyFull}
+                            className="w-full px-2 py-1 border rounded text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500 mb-4">
+                        {historyFull
+                          ? `Using full history (${getHistoryList().length} records).`
+                          : `Filtered history (${getHistoryList().length} records).`}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handlePrintHistory}
+                          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded"
+                        >
+                          Print / PDF
+                        </button>
+                        <button
+                          onClick={handleExportCsv}
+                          className="flex-1 px-4 py-2 border rounded"
+                        >
+                          Export CSV
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => setShowHistoryExportModal(false)}
+                        className="w-full mt-3 px-4 py-2 border rounded"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                   {/* Modals for quick actions */}
                   {showLocationModal && (
