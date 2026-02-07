@@ -8,3 +8,6 @@ export const DEPARTMENTS = [
 
 export const isValidDepartmentId = (id) =>
   DEPARTMENTS.some((d) => d.id === id);
+
+export const getDepartmentNameById = (id) =>
+  DEPARTMENTS.find((d) => d.id === id)?.name || null;

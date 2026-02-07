@@ -1,5 +1,9 @@
 import Asset from "../models/assets_model.js";
 import moment from "moment-timezone";
+import {
+  getDepartmentNameById,
+  isValidDepartmentId,
+} from "../config/departments.js";
 
 // Helper for date formatting
 const formatIST = (date) =>
@@ -42,18 +46,37 @@ const ensureDeptAccess = (req, asset) => {
 // POST: Add Asset
 export const addAsset = async (req, res) => {
   try {
-    const { subcategory, departmentName } = req.body;
+    const { subcategory, departmentId: bodyDeptId, departmentName } = req.body;
+    let departmentId = bodyDeptId;
+
     if (req.user?.role === "DEPARTMENT_USER") {
-      req.body.departmentId = req.user.departmentId;
+      departmentId = req.user.departmentId;
     }
 
+    if (departmentName && !departmentId) {
+      return res.status(400).json({
+        message: "departmentId is required when departmentName is provided",
+      });
+    }
+
+    if (departmentId && !isValidDepartmentId(departmentId)) {
+      return res.status(400).json({ message: "Invalid departmentId" });
+    }
+
+    const resolvedDepartmentName = departmentId
+      ? getDepartmentNameById(departmentId)
+      : null;
+
+    req.body.departmentId = departmentId || null;
+    req.body.departmentName = resolvedDepartmentName;
+
     // Get 3-letter codes from department name and equipment/subcategory
-    const deptCode = getThreeLetterCode(departmentName || "GEN");
+    const deptCode = getThreeLetterCode(resolvedDepartmentName || "GEN");
     const equipCode = getThreeLetterCode(subcategory || "OTH");
 
     // Find the last asset with same department and equipment to increment number
     const last = await Asset.findOne({
-      departmentName,
+      departmentName: resolvedDepartmentName,
       subcategory,
       ...getDeptFilter(req),
     })
@@ -207,9 +230,28 @@ export const getAssetById = async (req, res) => {
 // PUT & PATCH: Update Asset
 export const updateAsset = async (req, res) => {
   try {
+    const { departmentId: bodyDeptId, departmentName } = req.body;
+    let departmentId = bodyDeptId;
+
     if (req.user?.role === "DEPARTMENT_USER") {
-      req.body.departmentId = req.user.departmentId;
+      departmentId = req.user.departmentId;
     }
+
+    if (departmentName && !departmentId) {
+      return res.status(400).json({
+        message: "departmentId is required when departmentName is provided",
+      });
+    }
+
+    if (departmentId && !isValidDepartmentId(departmentId)) {
+      return res.status(400).json({ message: "Invalid departmentId" });
+    }
+
+    if (departmentId) {
+      req.body.departmentId = departmentId;
+      req.body.departmentName = getDepartmentNameById(departmentId);
+    }
+
     const updatedAsset = await Asset.findByIdAndUpdate(
       req.params.id,
       req.body,
