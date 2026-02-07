@@ -5,6 +5,7 @@ import { ArrowLeft, MapPin, Calendar, IndianRupee, QrCode, Download } from "luci
 import { generateQRCodeURL } from "../utils/qrcode";
 import api, { get } from "../lib/api"; // <-- uses centralized api helpers
 import AssetHistoryTimeline from "../components/AssetHistoryTimeline";
+import { ASSET_STATUSES } from "../data/assetStatuses";
 
 type Asset = {
   _id?: string;
@@ -690,12 +691,18 @@ const AssetDetails: React.FC = () => {
                       <div className="absolute inset-0 bg-black opacity-30" onClick={() => setShowStatusModal(false)} />
                       <div className="bg-white rounded-lg shadow-lg p-6 z-10 w-96">
                         <h4 className="text-lg font-semibold mb-2">Change Status</h4>
-                        <input
+                        <select
                           value={statusModalValue}
                           onChange={(e) => setStatusModalValue(e.target.value)}
                           className="w-full px-3 py-2 border rounded mb-4"
-                          placeholder="e.g., In-Use, Installed, In-Store, Damaged"
-                        />
+                        >
+                          <option value="">Select status</option>
+                          {ASSET_STATUSES.map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
                         <div className="flex gap-2">
                           <button
                             onClick={async () => {

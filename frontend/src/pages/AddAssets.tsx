@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { post } from "../lib/api"; // adjust path if your api is in a different folder
 import { useAuth } from "../context/AuthContext";
 import { DEPARTMENTS } from "../data/departments";
+import { ASSET_STATUSES } from "../data/assetStatuses";
 
 interface AssetFormData {
   name: string;
@@ -183,10 +184,11 @@ const AddAssetsPage: React.FC = () => {
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="Available">Available</option>
-              <option value="Under Maintenance">Under Maintenance</option>
-              <option value="Damaged">Damaged</option>
-              <option value="Out of Stock">Out of Stock</option>
+              {ASSET_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
             </select>
           </div>
 
