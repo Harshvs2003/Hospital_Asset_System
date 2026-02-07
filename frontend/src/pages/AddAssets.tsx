@@ -1,6 +1,8 @@
 // src/pages/AddAssetsPage.tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { post } from "../lib/api"; // adjust path if your api is in a different folder
+import { useAuth } from "../context/AuthContext";
+import { DEPARTMENTS } from "../data/departments";
 
 interface AssetFormData {
   name: string;
@@ -33,6 +35,22 @@ const AddAssetsPage: React.FC = () => {
   const [formData, setFormData] = useState<AssetFormData>(initialForm);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const { user } = useAuth();
+  const isViewer = user?.role === "VIEWER";
+  const isDeptUser = user?.role === "DEPARTMENT_USER";
+  const isAdminOrSupervisor =
+    user?.role === "ADMIN" || user?.role === "SUPERVISOR";
+
+  useEffect(() => {
+    if (isDeptUser && user?.departmentId) {
+      const dept = DEPARTMENTS.find((d) => d.id === user.departmentId);
+      setFormData((prev) => ({
+        ...prev,
+        departmentId: user.departmentId || "",
+        departmentName: dept?.name || prev.departmentName,
+      }));
+    }
+  }, [isDeptUser, user?.departmentId]);
 
   const categories = [
     { name: "Furniture", subcategories: ["Table", "Chair", "Cabinet"] },
@@ -51,12 +69,16 @@ const AddAssetsPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isViewer) return;
     setLoading(true);
     setMessage("");
 
     try {
       // use post helper; this hits `${API_BASE}/api/assets`
-      const data = await post("/assets", formData);
+      const payload = {
+        ...formData,
+      };
+      const data = await post("/assets", payload);
 
       // expecting backend to return something like { assetId: '...' } (keep as before)
       setMessage(`✅ Asset added successfully! ID: ${data.assetId ?? data.id ?? "N/A"}`);
@@ -74,12 +96,20 @@ const AddAssetsPage: React.FC = () => {
   };
 
   const selectedCategory = categories.find((c) => c.name === formData.category);
+  const selectedDepartment = DEPARTMENTS.find(
+    (d) => d.id === formData.departmentId
+  );
 
   return (
     <div className="p-6">
       <h1 className="text-3xl font-bold mb-6">Add New Asset</h1>
 
       <div className="bg-white rounded-lg shadow p-6 max-w-2xl">
+        {isViewer ? (
+          <div className="text-sm text-gray-600">
+            You do not have permission to add assets.
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Asset Name */}
           <div>
@@ -226,35 +256,49 @@ const AddAssetsPage: React.FC = () => {
             />
           </div>
 
-          {/* Department ID */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Department ID (Optional)
-            </label>
-            <input
-              type="text"
-              name="departmentId"
-              value={formData.departmentId}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g., DEPT001, ICU, OR"
-            />
-          </div>
+          {/* Department */}
+          {isAdminOrSupervisor && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Department *
+              </label>
+              <select
+                name="departmentId"
+                value={formData.departmentId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  const dept = DEPARTMENTS.find((d) => d.id === id);
+                  setFormData((prev) => ({
+                    ...prev,
+                    departmentId: id,
+                    departmentName: dept?.name || "",
+                  }));
+                }}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select Department</option>
+                {DEPARTMENTS.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-          {/* Department Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Department Name (Optional)
-            </label>
-            <input
-              type="text"
-              name="departmentName"
-              value={formData.departmentName}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g., ICU, Operating Room, Emergency"
-            />
-          </div>
+          {isDeptUser && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Department
+              </label>
+              <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-700">
+                {selectedDepartment
+                  ? `${selectedDepartment.name} (${selectedDepartment.id})`
+                  : formData.departmentId || "-"}
+              </div>
+            </div>
+          )}
 
           {/* Message */}
           {message && (
@@ -272,6 +316,7 @@ const AddAssetsPage: React.FC = () => {
             {loading ? "Adding..." : "Add Asset"}
           </button>
         </form>
+        )}
       </div>
     </div>
   );

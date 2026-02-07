@@ -79,6 +79,7 @@ export const register = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        departmentId: user.departmentId || null,
       },
       accessToken,
     });
@@ -116,6 +117,7 @@ export const login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        departmentId: user.departmentId || null,
       },
       accessToken,
     });
@@ -193,6 +195,7 @@ export const refreshToken = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        departmentId: user.departmentId || null,
       },
     });
   } catch (error) {
