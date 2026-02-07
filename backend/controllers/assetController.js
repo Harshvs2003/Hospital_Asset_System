@@ -100,6 +100,17 @@ export const addAsset = async (req, res) => {
     const newAsset = new Asset({
       ...req.body,
       assetId: newAssetId,
+      history: [
+        {
+          type: "ASSET_EVENT",
+          action: "Asset Created",
+          message: `Asset created${req.body?.name ? `: ${req.body.name}` : ""}`,
+          performedBy: req.user
+            ? { id: req.user._id, name: req.user.name, role: req.user.role }
+            : null,
+          performedAt: new Date(),
+        },
+      ],
     });
 
     await newAsset.save();
