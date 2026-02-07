@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { get, post } from "../lib/api";
 import Select from "react-select";
 import { useAuth } from "../context/AuthContext";
+import { COMPLAINT_TYPES } from "../data/complaintTypes";
 
 type Asset = {
   _id?: string;
@@ -123,12 +124,11 @@ const ComplainPage: React.FC = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select Type</option>
-                <option value="Equipment Malfunction">
-                  Equipment Malfunction
-                </option>
-                <option value="Missing Asset">Missing Asset</option>
-                <option value="Quality Issue">Quality Issue</option>
-                <option value="Other">Other</option>
+                {COMPLAINT_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
               </select>
             </div>
 

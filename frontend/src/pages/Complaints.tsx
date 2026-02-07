@@ -2,6 +2,8 @@ import React from "react";
 import { BadgeCheck, CheckCircle2, Circle, Filter, RefreshCcw, XCircle } from "lucide-react";
 import { get, patch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { DEPARTMENTS } from "../data/departments";
+import { COMPLAINT_TYPES } from "../data/complaintTypes";
 
 type Complaint = {
   _id: string;
@@ -42,6 +44,7 @@ const ComplaintsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = React.useState<"ALL" | Complaint["status"]>("ALL");
   const [assetFilter, setAssetFilter] = React.useState("");
   const [departmentFilter, setDepartmentFilter] = React.useState("");
+  const [typeFilter, setTypeFilter] = React.useState<"ALL" | string>("ALL");
 
   const [action, setAction] = React.useState<{ type: ActionType; complaint: Complaint } | null>(null);
   const [note, setNote] = React.useState("");
@@ -53,7 +56,6 @@ const ComplaintsPage: React.FC = () => {
     try {
       const params: Record<string, string> = {};
       if (statusFilter !== "ALL") params.status = statusFilter;
-      if (assetFilter.trim()) params.assetId = assetFilter.trim();
       if (departmentFilter.trim() && isAdminSupervisor) {
         params.departmentId = departmentFilter.trim();
       }
@@ -69,15 +71,32 @@ const ComplaintsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, assetFilter, departmentFilter, isAdminSupervisor]);
+  }, [statusFilter, departmentFilter, isAdminSupervisor]);
 
   React.useEffect(() => {
     fetchComplaints();
   }, [fetchComplaints]);
 
-  const openCount = complaints.filter((c) => c.status === "OPEN").length;
-  const resolvedCount = complaints.filter((c) => c.status === "SUPERVISOR_RESOLVED").length;
-  const closedCount = complaints.filter((c) => c.status === "CLOSED").length;
+  const filteredComplaints = React.useMemo(() => {
+    const assetQuery = assetFilter.trim().toLowerCase();
+    const deptQuery = departmentFilter.trim().toLowerCase();
+    return complaints.filter((c) => {
+      if (typeFilter !== "ALL" && c.type !== typeFilter) return false;
+      if (assetQuery) {
+        const assetId = (c.assetId || "").toString().toLowerCase();
+        if (!assetId.includes(assetQuery)) return false;
+      }
+      if (deptQuery) {
+        const deptId = (c.departmentId || "").toLowerCase();
+        if (!deptId.includes(deptQuery)) return false;
+      }
+      return true;
+    });
+  }, [complaints, assetFilter, departmentFilter, typeFilter]);
+
+  const openCount = filteredComplaints.filter((c) => c.status === "OPEN").length;
+  const resolvedCount = filteredComplaints.filter((c) => c.status === "SUPERVISOR_RESOLVED").length;
+  const closedCount = filteredComplaints.filter((c) => c.status === "CLOSED").length;
 
   const canResolve = (c: Complaint) => isAdminSupervisor && c.status === "OPEN";
   const canClose = (c: Complaint) =>
@@ -183,19 +202,37 @@ const ComplaintsPage: React.FC = () => {
               <option value="SUPERVISOR_RESOLVED">Supervisor Resolved</option>
               <option value="CLOSED">Closed</option>
             </select>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="ALL">All Types</option>
+              {COMPLAINT_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
             <input
               value={assetFilter}
               onChange={(e) => setAssetFilter(e.target.value)}
               placeholder="Asset ID"
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
-            {isAdminSupervisor && (
-              <input
+            {(isAdminSupervisor || isViewer) && (
+              <select
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
-                placeholder="Department ID"
                 className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
+              >
+                <option value="">All Departments</option>
+                {DEPARTMENTS.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.id})
+                  </option>
+                ))}
+              </select>
             )}
             <button
               onClick={fetchComplaints}
@@ -229,11 +266,11 @@ const ComplaintsPage: React.FC = () => {
           <div className="p-6 text-sm text-slate-500">Loading complaints...</div>
         ) : error ? (
           <div className="p-6 text-sm text-red-600">{error}</div>
-        ) : complaints.length === 0 ? (
+        ) : filteredComplaints.length === 0 ? (
           <div className="p-6 text-sm text-slate-500">No complaints found.</div>
         ) : (
           <div className="divide-y divide-slate-200">
-            {complaints.map((c) => (
+            {filteredComplaints.map((c) => (
               <div key={c._id} className="grid gap-4 p-6 md:grid-cols-[1.4fr_1fr_1fr_1fr_auto]">
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
