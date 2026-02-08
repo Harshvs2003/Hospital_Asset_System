@@ -6,7 +6,7 @@ export const generateQRCodeURL = (assetId: string) => {
       ? window.location.origin
       : "https://example.com";
 
-  const target = `${origin}/asset/${encodeURIComponent(payload)}`;
+  const target = `${origin}/assets/${encodeURIComponent(payload)}`;
 
   return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(target)}`;
 };
