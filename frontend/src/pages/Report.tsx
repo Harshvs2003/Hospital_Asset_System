@@ -30,6 +30,7 @@ const ReportPage: React.FC = () => {
   const [assets, setAssets] = React.useState<Asset[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [lastLoadedAt, setLastLoadedAt] = React.useState<string | null>(null);
 
   // filters
   const [categoryFilter, setCategoryFilter] = React.useState<string>("All");
@@ -43,6 +44,7 @@ const ReportPage: React.FC = () => {
     try {
       const data = await get("/assets"); // expects list
       setAssets(Array.isArray(data) ? data : []);
+      setLastLoadedAt(new Date().toISOString());
     } catch (err) {
       console.error("Failed to load assets for reports:", err);
       setError("Failed to load assets. Try again.");
@@ -109,6 +111,13 @@ const ReportPage: React.FC = () => {
     const totalValue = filteredAssets.reduce((s, a) => s + (a.price || 0), 0);
     return { total, available, maintenance, damaged, totalValue };
   }, [filteredAssets]);
+
+  const rangeLabel = React.useMemo(() => {
+    if (!fromDate && !toDate) return "All time";
+    if (fromDate && !toDate) return `From ${fmtDate(fromDate)}`;
+    if (!fromDate && toDate) return `Up to ${fmtDate(toDate)}`;
+    return `${fmtDate(fromDate)} to ${fmtDate(toDate)}`;
+  }, [fromDate, toDate]);
 
   // group by category
   const byCategory = React.useMemo(() => {
@@ -303,80 +312,120 @@ const ReportPage: React.FC = () => {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Reports & Analytics</h1>
-          <p className="text-gray-600 mt-1">
-            Overview, breakdowns and exports for inventory assets.
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            onClick={loadAssets}
-            className="px-3 py-2 bg-white border rounded flex items-center gap-2"
-          >
-            <RotateCw className="w-4 h-4" /> Refresh
-          </button>
-          <button
-            onClick={exportCSV}
-            className="px-3 py-2 bg-white border rounded flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" /> Export CSV
-          </button>
-          <button
-            onClick={exportPrintable}
-            className="px-3 py-2 bg-blue-600 text-white rounded flex items-center gap-2"
-          >
-            <Printer className="w-4 h-4" /> Export to PDF
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-4 mb-6 flex flex-col md:flex-row md:items-end md:gap-4">
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600 mr-2">Category</label>
-          <select
-            className="px-3 py-2 border rounded"
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-          >
-            <option value="All">All</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center gap-2 mt-3 md:mt-0">
-          <label className="text-sm text-gray-600">From</label>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            className="px-3 py-2 border rounded"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 mt-3 md:mt-0">
-          <label className="text-sm text-gray-600">To</label>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            className="px-3 py-2 border rounded"
-          />
-        </div>
-
-        <div className="ml-auto mt-3 md:mt-0 text-sm text-gray-600">
+    <div className="p-6 space-y-6">
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            Total assets: <strong>{summary.total}</strong>
+            <h1 className="text-3xl font-bold">Reports & Analytics</h1>
+            <p className="text-gray-600 mt-1">
+              Structured inventory reporting with export-ready data.
+            </p>
+            <div className="text-xs text-gray-500 mt-2">
+              Scope: <strong>{rangeLabel}</strong> · Category:{" "}
+              <strong>{categoryFilter}</strong>
+              {lastLoadedAt && (
+                <>
+                  {" "}
+                  · Updated: <strong>{fmtDate(lastLoadedAt)}</strong>
+                </>
+              )}
+            </div>
           </div>
-          <div>
-            Value: <strong>{summary.totalValue.toLocaleString()}</strong>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={loadAssets}
+              className="px-3 py-2 bg-white border rounded flex items-center gap-2"
+            >
+              <RotateCw className="w-4 h-4" /> Refresh
+            </button>
+            <button
+              onClick={exportCSV}
+              className="px-3 py-2 bg-white border rounded flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" /> Download CSV
+            </button>
+            <button
+              onClick={exportPrintable}
+              className="px-3 py-2 bg-blue-600 text-white rounded flex items-center gap-2"
+            >
+              <Printer className="w-4 h-4" /> Download PDF
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="border rounded-lg p-4">
+            <div className="text-xs text-gray-500">Total Assets</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {summary.total}
+            </div>
+          </div>
+          <div className="border rounded-lg p-4">
+            <div className="text-xs text-gray-500">Available</div>
+            <div className="text-2xl font-bold text-green-600">
+              {summary.available}
+            </div>
+          </div>
+          <div className="border rounded-lg p-4">
+            <div className="text-xs text-gray-500">Under Maintenance</div>
+            <div className="text-2xl font-bold text-yellow-600">
+              {summary.maintenance}
+            </div>
+          </div>
+          <div className="border rounded-lg p-4">
+            <div className="text-xs text-gray-500">Damaged</div>
+            <div className="text-2xl font-bold text-red-600">
+              {summary.damaged}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 border rounded-lg p-4 flex flex-col md:flex-row md:items-end md:gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600 mr-2">Category</label>
+            <select
+              className="px-3 py-2 border rounded"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <option value="All">All</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 mt-3 md:mt-0">
+            <label className="text-sm text-gray-600">From</label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="px-3 py-2 border rounded"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 mt-3 md:mt-0">
+            <label className="text-sm text-gray-600">To</label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="px-3 py-2 border rounded"
+            />
+          </div>
+
+          <div className="ml-auto mt-3 md:mt-0 text-sm text-gray-600">
+            <div>
+              Total assets: <strong>{summary.total}</strong>
+            </div>
+            <div>
+              Total value:{" "}
+              <strong>{summary.totalValue.toLocaleString()}</strong>
+            </div>
           </div>
         </div>
       </div>
@@ -391,43 +440,13 @@ const ReportPage: React.FC = () => {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="text-sm text-gray-600">Total Assets</h3>
-              <p className="text-2xl font-bold text-blue-600">
-                {summary.total}
-              </p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="text-sm text-gray-600">Available</h3>
-              <p className="text-2xl font-bold text-green-600">
-                {summary.available}
-              </p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="text-sm text-gray-600">Under Maintenance</h3>
-              <p className="text-2xl font-bold text-yellow-600">
-                {summary.maintenance}
-              </p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="text-sm text-gray-600">Damaged</h3>
-              <p className="text-2xl font-bold text-red-600">
-                {summary.damaged}
-              </p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-4 col-span-full">
-              <h3 className="text-sm text-gray-600">Total Inventory Value</h3>
-              <p className="text-2xl font-bold">
-                {summary.totalValue.toLocaleString()}
-              </p>
-            </div>
-          </div>
-
           <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h3 className="text-lg font-semibold mb-3">
-              Breakdown by Category
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Breakdown by Category</h3>
+              <div className="text-xs text-gray-500">
+                {byCategory.length} categories
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-gray-600">
                 <thead className="border-b border-gray-300">
@@ -455,9 +474,12 @@ const ReportPage: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h3 className="text-lg font-semibold mb-3">
-              Breakdown by Location
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Breakdown by Location</h3>
+              <div className="text-xs text-gray-500">
+                {byLocation.length} locations
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-gray-600">
                 <thead className="border-b border-gray-300">
@@ -485,7 +507,12 @@ const ReportPage: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-3">Raw assets (preview)</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Assets Detail (Preview)</h3>
+              <div className="text-xs text-gray-500">
+                Export full dataset using CSV or PDF
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-gray-600">
                 <thead className="border-b border-gray-300">
