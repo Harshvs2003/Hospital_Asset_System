@@ -7,6 +7,23 @@ import {
   verifyRefreshToken,
 } from "../utils/tokenUtils.js";
 import { isValidDepartmentId } from "../config/departments.js";
+import { sendEmail } from "../utils/emailSender.js";
+import {
+  verificationEmailTemplate,
+  resetPasswordEmailTemplate,
+  welcomeEmailTemplate,
+} from "../utils/emailTemplates.js";
+import {
+  buildOtpRecord,
+  generateOtp,
+  verifyOtp,
+  OTP_MAX_ATTEMPTS,
+  OTP_EXPIRY_MINUTES,
+} from "../utils/otpUtils.js";
+
+const RESEND_COOLDOWN_MS = 60 * 1000;
+const RESEND_WINDOW_MS = 10 * 60 * 1000;
+const RESEND_MAX_PER_WINDOW = 3;
 
 // helper to set refresh cookie
 const sendRefreshCookie = (res, token) => {
@@ -57,31 +74,34 @@ export const register = async (req, res) => {
       password: hashed,
       role: normalizedRole,
       departmentId: departmentId || null,
+      emailVerified: false,
     });
 
-    // create tokens
-    const accessToken = createAccessToken(user);
-    const { token: refreshToken, jti } = createRefreshToken(user);
-
-    // store jti in user record (multi-session)
-    user.refreshTokenIds = Array.isArray(user.refreshTokenIds)
-      ? [...new Set([...user.refreshTokenIds, jti])].slice(-5)
-      : [jti];
+    const otp = generateOtp();
+    const record = buildOtpRecord(otp, user._id, "verify_email");
+    user.emailVerificationOtpHash = record.otpHash;
+    user.emailVerificationOtpExpires = record.expiresAt;
+    user.emailVerificationOtpAttempts = record.attempts;
+    user.emailVerificationOtpLastSentAt = new Date();
+    user.emailVerificationOtpResendCount = 1;
+    user.emailVerificationOtpResendWindowStart = new Date();
     await user.save();
 
-    // send refresh token as httpOnly cookie
-    sendRefreshCookie(res, refreshToken);
-
-    // send back user (safe) + access token
-    res.status(201).json({
-      user: {
-        id: user._id,
+    await sendEmail({
+      to: user.email,
+      subject: "Verify your email",
+      text: `Your verification OTP is ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`,
+      html: verificationEmailTemplate({
         name: user.name,
-        email: user.email,
-        role: user.role,
-        departmentId: user.departmentId || null,
-      },
-      accessToken,
+        otp,
+        expiresMinutes: OTP_EXPIRY_MINUTES,
+      }),
+    });
+
+    res.status(201).json({
+      message: "Registration successful. Please verify your email.",
+      requiresVerification: true,
+      email: user.email,
     });
   } catch (error) {
     console.error("Register error:", error);
@@ -97,6 +117,12 @@ export const login = async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ message: "Invalid credentials" });
+    if (!user.emailVerified) {
+      return res.status(403).json({
+        message: "Email not verified. Please verify to continue.",
+        requiresVerification: true,
+      });
+    }
 
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) return res.status(401).json({ message: "Invalid credentials" });
@@ -241,6 +267,236 @@ export const logout = async (req, res) => {
     return res.json({ message: "Logged out" });
   } catch (error) {
     console.error("Logout error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const verifyEmail = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ message: "Email and OTP are required" });
+    }
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.emailVerified) {
+      return res.status(400).json({ message: "Email already verified" });
+    }
+
+    const record = {
+      otpHash: user.emailVerificationOtpHash,
+      expiresAt: user.emailVerificationOtpExpires,
+      attempts: user.emailVerificationOtpAttempts || 0,
+    };
+
+    const result = verifyOtp({
+      otp,
+      userId: user._id,
+      purpose: "verify_email",
+      record,
+    });
+
+    if (!result.ok) {
+      user.emailVerificationOtpAttempts = Math.min(
+        OTP_MAX_ATTEMPTS,
+        (user.emailVerificationOtpAttempts || 0) + 1
+      );
+      await user.save();
+      return res.status(400).json({ message: result.reason });
+    }
+
+    user.emailVerified = true;
+    user.emailVerificationOtpHash = null;
+    user.emailVerificationOtpExpires = null;
+    user.emailVerificationOtpAttempts = 0;
+    await user.save();
+
+    await sendEmail({
+      to: user.email,
+      subject: "Welcome to Asset Operations",
+      text: "Welcome to Asset Operations. Your account is verified and ready to use.",
+      html: welcomeEmailTemplate({ name: user.name }),
+    });
+
+    return res.json({ message: "Email verified successfully" });
+  } catch (error) {
+    console.error("Verify email error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const resendVerification = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email is required" });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.emailVerified) {
+      return res.status(400).json({ message: "Email already verified" });
+    }
+
+    const now = Date.now();
+    if (user.emailVerificationOtpLastSentAt) {
+      const sinceLast = now - new Date(user.emailVerificationOtpLastSentAt).getTime();
+      if (sinceLast < RESEND_COOLDOWN_MS) {
+        return res.status(429).json({
+          message: "Please wait before requesting another OTP",
+          retryAfterSeconds: Math.ceil((RESEND_COOLDOWN_MS - sinceLast) / 1000),
+        });
+      }
+    }
+
+    let windowStart = user.emailVerificationOtpResendWindowStart
+      ? new Date(user.emailVerificationOtpResendWindowStart).getTime()
+      : 0;
+    if (!windowStart || now - windowStart > RESEND_WINDOW_MS) {
+      windowStart = now;
+      user.emailVerificationOtpResendCount = 0;
+    }
+
+    if ((user.emailVerificationOtpResendCount || 0) >= RESEND_MAX_PER_WINDOW) {
+      const remainingMs = RESEND_WINDOW_MS - (now - windowStart);
+      return res.status(429).json({
+        message: "OTP resend limit reached. Please try later.",
+        retryAfterSeconds: Math.max(1, Math.ceil(remainingMs / 1000)),
+      });
+    }
+
+    const otp = generateOtp();
+    const record = buildOtpRecord(otp, user._id, "verify_email");
+    user.emailVerificationOtpHash = record.otpHash;
+    user.emailVerificationOtpExpires = record.expiresAt;
+    user.emailVerificationOtpAttempts = record.attempts;
+    user.emailVerificationOtpLastSentAt = new Date();
+    user.emailVerificationOtpResendCount = (user.emailVerificationOtpResendCount || 0) + 1;
+    user.emailVerificationOtpResendWindowStart = new Date(windowStart);
+    await user.save();
+
+    await sendEmail({
+      to: user.email,
+      subject: "Verify your email",
+      text: `Your verification OTP is ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`,
+      html: verificationEmailTemplate({
+        name: user.name,
+        otp,
+        expiresMinutes: OTP_EXPIRY_MINUTES,
+      }),
+    });
+
+    return res.json({ message: "Verification OTP sent" });
+  } catch (error) {
+    console.error("Resend verification error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email is required" });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const now = Date.now();
+    if (user.passwordResetOtpLastSentAt) {
+      const sinceLast = now - new Date(user.passwordResetOtpLastSentAt).getTime();
+      if (sinceLast < RESEND_COOLDOWN_MS) {
+        return res.status(429).json({
+          message: "Please wait before requesting another OTP",
+          retryAfterSeconds: Math.ceil((RESEND_COOLDOWN_MS - sinceLast) / 1000),
+        });
+      }
+    }
+
+    let windowStart = user.passwordResetOtpResendWindowStart
+      ? new Date(user.passwordResetOtpResendWindowStart).getTime()
+      : 0;
+    if (!windowStart || now - windowStart > RESEND_WINDOW_MS) {
+      windowStart = now;
+      user.passwordResetOtpResendCount = 0;
+    }
+
+    if ((user.passwordResetOtpResendCount || 0) >= RESEND_MAX_PER_WINDOW) {
+      const remainingMs = RESEND_WINDOW_MS - (now - windowStart);
+      return res.status(429).json({
+        message: "OTP resend limit reached. Please try later.",
+        retryAfterSeconds: Math.max(1, Math.ceil(remainingMs / 1000)),
+      });
+    }
+
+    const otp = generateOtp();
+    const record = buildOtpRecord(otp, user._id, "reset_password");
+    user.passwordResetOtpHash = record.otpHash;
+    user.passwordResetOtpExpires = record.expiresAt;
+    user.passwordResetOtpAttempts = record.attempts;
+    user.passwordResetOtpLastSentAt = new Date();
+    user.passwordResetOtpResendCount = (user.passwordResetOtpResendCount || 0) + 1;
+    user.passwordResetOtpResendWindowStart = new Date(windowStart);
+    await user.save();
+
+    await sendEmail({
+      to: user.email,
+      subject: "Reset your password",
+      text: `Your password reset OTP is ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`,
+      html: resetPasswordEmailTemplate({
+        name: user.name,
+        otp,
+        expiresMinutes: OTP_EXPIRY_MINUTES,
+      }),
+    });
+
+    return res.json({ message: "Password reset OTP sent" });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ message: "Email, OTP, and new password are required" });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const record = {
+      otpHash: user.passwordResetOtpHash,
+      expiresAt: user.passwordResetOtpExpires,
+      attempts: user.passwordResetOtpAttempts || 0,
+    };
+
+    const result = verifyOtp({
+      otp,
+      userId: user._id,
+      purpose: "reset_password",
+      record,
+    });
+
+    if (!result.ok) {
+      user.passwordResetOtpAttempts = Math.min(
+        OTP_MAX_ATTEMPTS,
+        (user.passwordResetOtpAttempts || 0) + 1
+      );
+      await user.save();
+      return res.status(400).json({ message: result.reason });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    user.password = hashed;
+    user.passwordResetOtpHash = null;
+    user.passwordResetOtpExpires = null;
+    user.passwordResetOtpAttempts = 0;
+    await user.save();
+
+    return res.json({ message: "Password reset successful" });
+  } catch (error) {
+    console.error("Reset password error:", error);
     res.status(500).json({ message: error.message });
   }
 };

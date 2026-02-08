@@ -2,7 +2,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { UserPlus, AlertCircle, Loader } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
 import { post } from "../lib/api";
 import { DEPARTMENTS } from "../data/departments";
 
@@ -16,8 +15,6 @@ const Register: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -54,9 +51,7 @@ const Register: React.FC = () => {
         departmentId: role === "DEPARTMENT_USER" ? departmentId : null,
       });
 
-      // Auto-login after successful registration
-      await login(email.trim(), password);
-      navigate("/");
+      navigate(`/verify-email?email=${encodeURIComponent(email.trim())}`);
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || "Registration failed";
       setError(String(msg));
@@ -67,7 +62,7 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-8">
         {/* Header */}
         <div className="text-center mb-8">
@@ -83,7 +78,7 @@ const Register: React.FC = () => {
         {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-red-800">{error}</p>
             </div>

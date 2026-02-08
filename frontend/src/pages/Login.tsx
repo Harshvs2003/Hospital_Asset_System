@@ -36,7 +36,7 @@ const Login: React.FC = () => {
   const disabled = loading || authLoading;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-8">
         {/* Header */}
         <div className="text-center mb-8">
@@ -52,7 +52,7 @@ const Login: React.FC = () => {
         {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-red-800">{error}</p>
             </div>
@@ -118,6 +118,11 @@ const Login: React.FC = () => {
           Don't have an account?{" "}
           <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
             Create one
+          </Link>
+        </p>
+        <p className="text-sm text-gray-600 text-center mt-3">
+          <Link to="/forgot-password" className="text-blue-600 hover:text-blue-700 font-medium">
+            Forgot password?
           </Link>
         </p>
 

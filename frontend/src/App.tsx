@@ -12,6 +12,8 @@ import QRGen from './pages/QRGen'
 import Report from './pages/Report'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import VerifyEmail from './pages/VerifyEmail'
+import ForgotPassword from './pages/ForgotPassword'
 import { useAuth } from './context/AuthContext'
 import AuthBoot from './components/AuthBoot'
 import './App.css'
@@ -28,6 +30,8 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
