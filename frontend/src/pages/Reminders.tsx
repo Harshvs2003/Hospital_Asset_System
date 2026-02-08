@@ -85,10 +85,6 @@ const RemindersPage: React.FC = () => {
         return true;
       })
       .sort((a, b) => {
-        const colorOrder = { red: 0, orange: 1, green: 2 };
-        const cA = colorOrder[a.color || "green"];
-        const cB = colorOrder[b.color || "green"];
-        if (cA !== cB) return cA - cB;
         return deadlineSort === "asc" ? a.daysLeft - b.daysLeft : b.daysLeft - a.daysLeft;
       });
   };
