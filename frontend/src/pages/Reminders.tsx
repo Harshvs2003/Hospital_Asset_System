@@ -233,7 +233,7 @@ const RemindersPage: React.FC = () => {
         <div className="text-sm text-red-600">{error}</div>
       ) : (
         <>
-          <div className="space-y-3">
+          <div className="w-120 space-y-3">
             <h2 className="text-lg font-semibold text-slate-900">Service Reminders</h2>
             {filterList(serviceReminders).length === 0 ? (
               <div className="text-sm text-slate-500">No active service reminders.</div>
