@@ -39,6 +39,24 @@ const AssetSchema = new mongoose.Schema({
         type: Date,
         required: false
     },
+    reminderService: {
+        enabled: { type: Boolean, default: false },
+        startDays: { type: Number, default: null },
+        intervalDays: { type: Number, default: null }
+    },
+    reminderContract: {
+        enabled: { type: Boolean, default: false },
+        startDays: { type: Number, default: null },
+        intervalDays: { type: Number, default: null }
+    },
+    reminderServiceLastSentAt: {
+        type: Date,
+        default: null
+    },
+    reminderContractLastSentAt: {
+        type: Date,
+        default: null
+    },
     status: {
         type: String,
         required: true

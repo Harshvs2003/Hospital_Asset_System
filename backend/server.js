@@ -7,6 +7,7 @@ import assetRoutes from "./routes/assetRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import complaintRoutes from "./routes/complaintRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import reminderRoutes from "./routes/reminderRoutes.js";
 
 import cors from "cors";
 import helmet from "helmet";
@@ -66,6 +67,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/assets", assetRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/reminders", reminderRoutes);
 
 // health endpoint for platform checks
 app.get("/_health", (_req, res) => res.status(200).json({ status: "ok", uptime: process.uptime() }));

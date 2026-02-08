@@ -49,3 +49,42 @@ export const welcomeEmailTemplate = ({ name }) => {
   `;
   return baseLayout({ title: "Welcome aboard!", body });
 };
+
+export const reminderEmailTemplate = ({ name, reminder, appName: appOverride }) => {
+  const brand = appOverride || appName;
+  const label = reminder.type === "service" ? "Service Due" : "Contract Expiry";
+  const dueDate = reminder.dueDate
+    ? new Date(reminder.dueDate).toLocaleDateString()
+    : "N/A";
+
+  const body = `
+    <p>Hi ${name || "there"},</p>
+    <p><strong>${label} Reminder</strong></p>
+    <p>
+      Asset: <strong>${reminder.assetName}</strong><br/>
+      Asset ID: <strong>${reminder.assetId}</strong><br/>
+      Department: ${reminder.departmentName || "-"} (${reminder.departmentId || "-"})<br/>
+      Due Date: <strong>${dueDate}</strong><br/>
+      Days Left: <strong>${reminder.daysLeft}</strong>
+    </p>
+    <p>Sent by ${brand}.</p>
+  `;
+  return baseLayout({ title: `${label} Reminder`, body });
+};
+
+export const reminderUpdateTemplate = ({ name, asset, type, newDate, appName: appOverride }) => {
+  const brand = appOverride || appName;
+  const label = type === "service" ? "Service Due" : "Contract Expiry";
+  const dueDate = newDate ? new Date(newDate).toLocaleDateString() : "Not set";
+  const body = `
+    <p>Hi ${name || "there"},</p>
+    <p>The ${label} reminder was updated for:</p>
+    <p>
+      Asset: <strong>${asset?.name || ""}</strong><br/>
+      Asset ID: <strong>${asset?.assetId || asset?._id}</strong><br/>
+      New Due Date: <strong>${dueDate}</strong>
+    </p>
+    <p>Sent by ${brand}.</p>
+  `;
+  return baseLayout({ title: "Reminder Updated", body });
+};

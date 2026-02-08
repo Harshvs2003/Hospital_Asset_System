@@ -13,10 +13,20 @@ interface AssetFormData {
   location: string;
   installdate?: string;
   purchaseDate?: string;
-  servicedate?: string;
+  lastServiceDate?: string;
   contractExpiryDate?: string;
   departmentId?: string;
   departmentName?: string;
+  reminderService?: {
+    enabled: boolean;
+    startDays: number | null;
+    intervalDays: number | null;
+  };
+  reminderContract?: {
+    enabled: boolean;
+    startDays: number | null;
+    intervalDays: number | null;
+  };
 }
 
 const initialForm: AssetFormData = {
@@ -26,10 +36,12 @@ const initialForm: AssetFormData = {
   status: "Available",
   location: "",
   purchaseDate: "",
-  servicedate: "",
+  lastServiceDate: "",
   contractExpiryDate: "",
   departmentId: "",
   departmentName: "",
+  reminderService: { enabled: false, startDays: null, intervalDays: null },
+  reminderContract: { enabled: false, startDays: null, intervalDays: null },
 };
 
 const AddAssetsPage: React.FC = () => {
@@ -66,6 +78,13 @@ const AddAssetsPage: React.FC = () => {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const getIntervalOptions = (startDays: number | null) => {
+    if (startDays === 7) return [1];
+    if (startDays === 15) return [1, 2];
+    if (startDays === 30) return [1, 3, 5];
+    return [];
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -234,13 +253,13 @@ const AddAssetsPage: React.FC = () => {
             />
           </div>
 
-          {/* Last Service Date */}
+          {/* Service Date */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Service Date (Optional)</label>
             <input
               type="date"
-              name="servicedate"
-              value={formData.servicedate ?? ""}
+              name="lastServiceDate"
+              value={formData.lastServiceDate ?? ""}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -257,6 +276,152 @@ const AddAssetsPage: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+
+          {(isAdminOrSupervisor || isDeptUser) && (
+            <div className="border rounded-lg p-4 space-y-4">
+              <div className="text-sm font-semibold text-gray-800">Reminder Settings (Optional)</div>
+
+              <div className="space-y-2">
+                <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={!!formData.reminderService?.enabled}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        reminderService: {
+                          enabled: e.target.checked,
+                          startDays: prev.reminderService?.startDays ?? 7,
+                          intervalDays: prev.reminderService?.intervalDays ?? 1,
+                        },
+                      }))
+                    }
+                  />
+                  Service Reminder
+                </label>
+                {formData.reminderService?.enabled && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Start Days</label>
+                      <select
+                        value={formData.reminderService?.startDays ?? 7}
+                        onChange={(e) => {
+                          const startDays = Number(e.target.value);
+                          const options = getIntervalOptions(startDays);
+                          setFormData((prev) => ({
+                            ...prev,
+                            reminderService: {
+                              enabled: true,
+                              startDays,
+                              intervalDays: options[0] ?? 1,
+                            },
+                          }));
+                        }}
+                        className="w-full px-3 py-2 border rounded"
+                      >
+                        <option value={7}>7 days</option>
+                        <option value={15}>15 days</option>
+                        <option value={30}>30 days</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Interval</label>
+                      <select
+                        value={formData.reminderService?.intervalDays ?? 1}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            reminderService: {
+                              enabled: true,
+                              startDays: prev.reminderService?.startDays ?? 7,
+                              intervalDays: Number(e.target.value),
+                            },
+                          }))
+                        }
+                        className="w-full px-3 py-2 border rounded"
+                      >
+                        {getIntervalOptions(formData.reminderService?.startDays ?? 7).map((v) => (
+                          <option key={v} value={v}>
+                            Every {v} day{v > 1 ? "s" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={!!formData.reminderContract?.enabled}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        reminderContract: {
+                          enabled: e.target.checked,
+                          startDays: prev.reminderContract?.startDays ?? 7,
+                          intervalDays: prev.reminderContract?.intervalDays ?? 1,
+                        },
+                      }))
+                    }
+                  />
+                  Contract Reminder
+                </label>
+                {formData.reminderContract?.enabled && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Start Days</label>
+                      <select
+                        value={formData.reminderContract?.startDays ?? 7}
+                        onChange={(e) => {
+                          const startDays = Number(e.target.value);
+                          const options = getIntervalOptions(startDays);
+                          setFormData((prev) => ({
+                            ...prev,
+                            reminderContract: {
+                              enabled: true,
+                              startDays,
+                              intervalDays: options[0] ?? 1,
+                            },
+                          }));
+                        }}
+                        className="w-full px-3 py-2 border rounded"
+                      >
+                        <option value={7}>7 days</option>
+                        <option value={15}>15 days</option>
+                        <option value={30}>30 days</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Interval</label>
+                      <select
+                        value={formData.reminderContract?.intervalDays ?? 1}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            reminderContract: {
+                              enabled: true,
+                              startDays: prev.reminderContract?.startDays ?? 7,
+                              intervalDays: Number(e.target.value),
+                            },
+                          }))
+                        }
+                        className="w-full px-3 py-2 border rounded"
+                      >
+                        {getIntervalOptions(formData.reminderContract?.startDays ?? 7).map((v) => (
+                          <option key={v} value={v}>
+                            Every {v} day{v > 1 ? "s" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Department */}
           {isAdminOrSupervisor && (

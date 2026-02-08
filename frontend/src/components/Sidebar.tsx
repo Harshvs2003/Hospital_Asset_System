@@ -8,6 +8,7 @@ import {
   ClipboardList,
   QrCode,
   BarChart3,
+  Bell,
   Menu,
   X,
   LogOut,
@@ -28,6 +29,9 @@ const Sidebar: React.FC = () => {
     { label: "Complain", icon: AlertCircle, path: "/complain" },
     { label: "Complaints", icon: ClipboardList, path: "/complaints" },
     { label: "QR Generator", icon: QrCode, path: "/qr-gen" },
+    ...(user && ["ADMIN", "SUPERVISOR", "VIEWER"].includes(user.role)
+      ? [{ label: "Reminders", icon: Bell, path: "/reminders" }]
+      : []),
     { label: "Report", icon: BarChart3, path: "/report" },
   ];
 

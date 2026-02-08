@@ -6,6 +6,7 @@ import { generateQRCodeURL } from "../utils/qrcode";
 import api, { get } from "../lib/api"; // <-- uses centralized api helpers
 import AssetHistoryTimeline from "../components/AssetHistoryTimeline";
 import { ASSET_STATUSES } from "../data/assetStatuses";
+import { useAuth } from "../context/AuthContext";
 
 type Asset = {
   _id?: string;
@@ -20,6 +21,16 @@ type Asset = {
   purchaseDate?: string;
   lastServiceDate?: string;
   contractExpiryDate?: string;
+  reminderService?: {
+    enabled?: boolean;
+    startDays?: number | null;
+    intervalDays?: number | null;
+  };
+  reminderContract?: {
+    enabled?: boolean;
+    startDays?: number | null;
+    intervalDays?: number | null;
+  };
   departmentId?: string;
   departmentName?: string;
   createdAt?: string;
@@ -45,6 +56,8 @@ const priceFmt = (n?: number) =>
 const AssetDetails: React.FC = () => {
   const { assetId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isViewer = user?.role === "VIEWER";
   const [asset, setAsset] = React.useState<Asset | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -59,11 +72,20 @@ const AssetDetails: React.FC = () => {
   const [showStatusModal, setShowStatusModal] = React.useState(false);
   const [showAssignModal, setShowAssignModal] = React.useState(false);
   const [showDepartmentModal, setShowDepartmentModal] = React.useState(false);
+  const [showReminderModal, setShowReminderModal] = React.useState(false);
   const [locationModalValue, setLocationModalValue] = React.useState("");
   const [statusModalValue, setStatusModalValue] = React.useState("");
   const [assignModalValue, setAssignModalValue] = React.useState("");
   const [departmentIdModalValue, setDepartmentIdModalValue] = React.useState("");
   const [departmentNameModalValue, setDepartmentNameModalValue] = React.useState("");
+  const [serviceDateModalValue, setServiceDateModalValue] = React.useState("");
+  const [contractDateModalValue, setContractDateModalValue] = React.useState("");
+  const [serviceReminderEnabled, setServiceReminderEnabled] = React.useState(false);
+  const [serviceReminderStartDays, setServiceReminderStartDays] = React.useState<number>(7);
+  const [serviceReminderIntervalDays, setServiceReminderIntervalDays] = React.useState<number>(1);
+  const [contractReminderEnabled, setContractReminderEnabled] = React.useState(false);
+  const [contractReminderStartDays, setContractReminderStartDays] = React.useState<number>(7);
+  const [contractReminderIntervalDays, setContractReminderIntervalDays] = React.useState<number>(1);
   const [showHistoryExportModal, setShowHistoryExportModal] = React.useState(false);
   const [historyFromDate, setHistoryFromDate] = React.useState("");
   const [historyToDate, setHistoryToDate] = React.useState("");
@@ -134,6 +156,13 @@ const AssetDetails: React.FC = () => {
     } catch {
       return String(d).slice(0, 10);
     }
+  };
+
+  const getIntervalOptions = (startDays: number) => {
+    if (startDays === 7) return [1];
+    if (startDays === 15) return [1, 2];
+    if (startDays === 30) return [1, 3, 5];
+    return [1];
   };
 
   const formatDateTime = (d?: string | null) => {
@@ -385,6 +414,18 @@ const AssetDetails: React.FC = () => {
     setShowDepartmentModal(true);
   };
 
+  const handleUpdateReminders = () => {
+    setServiceDateModalValue(shortDate(asset?.lastServiceDate) || "");
+    setContractDateModalValue(shortDate(asset?.contractExpiryDate) || "");
+    setServiceReminderEnabled(!!asset?.reminderService?.enabled);
+    setServiceReminderStartDays(asset?.reminderService?.startDays || 7);
+    setServiceReminderIntervalDays(asset?.reminderService?.intervalDays || 1);
+    setContractReminderEnabled(!!asset?.reminderContract?.enabled);
+    setContractReminderStartDays(asset?.reminderContract?.startDays || 7);
+    setContractReminderIntervalDays(asset?.reminderContract?.intervalDays || 1);
+    setShowReminderModal(true);
+  };
+
   const handleReportComplaint = async () => {
     if (!asset) return;
     // Navigate to the complaint page with this asset preselected
@@ -574,6 +615,13 @@ const AssetDetails: React.FC = () => {
                       className="w-full px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       Update Department
+                    </button>
+                    <button
+                      onClick={handleUpdateReminders}
+                      disabled={actionLoading || isViewer}
+                      className="w-full px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Update Reminders
                     </button>
                     <button
                       onClick={handleReportComplaint}
@@ -787,6 +835,156 @@ const AssetDetails: React.FC = () => {
                             Save
                           </button>
                           <button onClick={() => setShowDepartmentModal(false)} className="px-4 py-2 border rounded">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {showReminderModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center">
+                      <div className="absolute inset-0 bg-black opacity-30" onClick={() => setShowReminderModal(false)} />
+                      <div className="bg-white rounded-lg shadow-lg p-6 z-10 w-[520px]">
+                        <h4 className="text-lg font-semibold mb-4">Update Reminders</h4>
+
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Service Date</label>
+                            <input
+                              type="date"
+                              value={serviceDateModalValue}
+                              onChange={(e) => setServiceDateModalValue(e.target.value)}
+                              className="w-full px-3 py-2 border rounded"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Contract Expiry</label>
+                            <input
+                              type="date"
+                              value={contractDateModalValue}
+                              onChange={(e) => setContractDateModalValue(e.target.value)}
+                              className="w-full px-3 py-2 border rounded"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="border rounded-lg p-3 mb-3">
+                          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={serviceReminderEnabled}
+                              onChange={(e) => setServiceReminderEnabled(e.target.checked)}
+                            />
+                            Service Reminder
+                          </label>
+                          {serviceReminderEnabled && (
+                            <div className="grid grid-cols-2 gap-3 mt-3">
+                              <div>
+                                <label className="block text-xs text-gray-600 mb-1">Start Days</label>
+                                <select
+                                  value={serviceReminderStartDays}
+                                  onChange={(e) => {
+                                    const startDays = Number(e.target.value);
+                                    const options = getIntervalOptions(startDays);
+                                    setServiceReminderStartDays(startDays);
+                                    setServiceReminderIntervalDays(options[0] ?? 1);
+                                  }}
+                                  className="w-full px-3 py-2 border rounded"
+                                >
+                                  <option value={7}>7 days</option>
+                                  <option value={15}>15 days</option>
+                                  <option value={30}>30 days</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-600 mb-1">Interval</label>
+                                <select
+                                  value={serviceReminderIntervalDays}
+                                  onChange={(e) => setServiceReminderIntervalDays(Number(e.target.value))}
+                                  className="w-full px-3 py-2 border rounded"
+                                >
+                                  {getIntervalOptions(serviceReminderStartDays).map((v) => (
+                                    <option key={v} value={v}>
+                                      Every {v} day{v > 1 ? "s" : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="border rounded-lg p-3 mb-4">
+                          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={contractReminderEnabled}
+                              onChange={(e) => setContractReminderEnabled(e.target.checked)}
+                            />
+                            Contract Reminder
+                          </label>
+                          {contractReminderEnabled && (
+                            <div className="grid grid-cols-2 gap-3 mt-3">
+                              <div>
+                                <label className="block text-xs text-gray-600 mb-1">Start Days</label>
+                                <select
+                                  value={contractReminderStartDays}
+                                  onChange={(e) => {
+                                    const startDays = Number(e.target.value);
+                                    const options = getIntervalOptions(startDays);
+                                    setContractReminderStartDays(startDays);
+                                    setContractReminderIntervalDays(options[0] ?? 1);
+                                  }}
+                                  className="w-full px-3 py-2 border rounded"
+                                >
+                                  <option value={7}>7 days</option>
+                                  <option value={15}>15 days</option>
+                                  <option value={30}>30 days</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-600 mb-1">Interval</label>
+                                <select
+                                  value={contractReminderIntervalDays}
+                                  onChange={(e) => setContractReminderIntervalDays(Number(e.target.value))}
+                                  className="w-full px-3 py-2 border rounded"
+                                >
+                                  {getIntervalOptions(contractReminderStartDays).map((v) => (
+                                    <option key={v} value={v}>
+                                      Every {v} day{v > 1 ? "s" : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              await patchAsset({
+                                lastServiceDate: serviceDateModalValue || null,
+                                contractExpiryDate: contractDateModalValue || null,
+                                reminderService: {
+                                  enabled: serviceReminderEnabled,
+                                  startDays: serviceReminderEnabled ? serviceReminderStartDays : null,
+                                  intervalDays: serviceReminderEnabled ? serviceReminderIntervalDays : null,
+                                },
+                                reminderContract: {
+                                  enabled: contractReminderEnabled,
+                                  startDays: contractReminderEnabled ? contractReminderStartDays : null,
+                                  intervalDays: contractReminderEnabled ? contractReminderIntervalDays : null,
+                                },
+                              });
+                              setShowReminderModal(false);
+                            }}
+                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded"
+                          >
+                            Save
+                          </button>
+                          <button onClick={() => setShowReminderModal(false)} className="px-4 py-2 border rounded">
                             Cancel
                           </button>
                         </div>

@@ -10,6 +10,7 @@ import Complaints from './pages/Complaints'
 import ComplaintDetails from './pages/ComplaintDetails'
 import QRGen from './pages/QRGen'
 import Report from './pages/Report'
+import Reminders from './pages/Reminders'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import VerifyEmail from './pages/VerifyEmail'
@@ -50,6 +51,7 @@ function App() {
           <Route path="/complaints" element={<ProtectedRoute><Complaints /></ProtectedRoute>} />
           <Route path="/complaints/:complaintId" element={<ProtectedRoute><ComplaintDetails /></ProtectedRoute>} />
           <Route path="/qr-gen" element={<ProtectedRoute><QRGen /></ProtectedRoute>} />
+          <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
           <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
