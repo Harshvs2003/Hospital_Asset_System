@@ -965,17 +965,17 @@ const AssetDetails: React.FC = () => {
                           <button
                             onClick={async () => {
                               await patchAsset({
-                                lastServiceDate: serviceDateModalValue || null,
-                                contractExpiryDate: contractDateModalValue || null,
+                                lastServiceDate: serviceDateModalValue || undefined,
+                                contractExpiryDate: contractDateModalValue || undefined,
                                 reminderService: {
                                   enabled: serviceReminderEnabled,
-                                  startDays: serviceReminderEnabled ? serviceReminderStartDays : null,
-                                  intervalDays: serviceReminderEnabled ? serviceReminderIntervalDays : null,
+                                  startDays: serviceReminderEnabled ? serviceReminderStartDays : undefined,
+                                  intervalDays: serviceReminderEnabled ? serviceReminderIntervalDays : undefined,
                                 },
                                 reminderContract: {
                                   enabled: contractReminderEnabled,
-                                  startDays: contractReminderEnabled ? contractReminderStartDays : null,
-                                  intervalDays: contractReminderEnabled ? contractReminderIntervalDays : null,
+                                  startDays: contractReminderEnabled ? contractReminderStartDays : undefined,
+                                  intervalDays: contractReminderEnabled ? contractReminderIntervalDays : undefined,
                                 },
                               });
                               setShowReminderModal(false);
