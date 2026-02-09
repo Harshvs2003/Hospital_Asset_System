@@ -1,6 +1,8 @@
 // src/pages/Dashboard.tsx
 import React, { useState } from "react";
-import { BedDouble, Stethoscope, Monitor, Pill } from "lucide-react";
+import { BedDouble, Stethoscope, Monitor, Pill, Bell } from "lucide-react";
+import { Link } from "react-router-dom";
+import { get } from "../lib/api";
 
 interface StatItem {
   label: string;
@@ -17,6 +19,26 @@ interface CategoryData {
 
 const Dashboard: React.FC = () => {
   const [flipped, setFlipped] = useState<Record<string, boolean>>({});
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  React.useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const res = await get("/notifications/unread-count");
+        const count = res?.data?.count ?? res?.count ?? 0;
+        if (mounted) setUnreadCount(count);
+      } catch {
+        if (mounted) setUnreadCount(0);
+      }
+    };
+    load();
+    const id = setInterval(load, 20000);
+    return () => {
+      mounted = false;
+      clearInterval(id);
+    };
+  }, []);
 
   const categories: CategoryData[] = [
     {
@@ -132,7 +154,17 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="page min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-200">
-      <h1 className="text-2xl sm:text-3xl font-semibold mb-6 sm:mb-8 text-gray-800">🏥 Hospital Inventory Dashboard</h1>
+      <div className="flex items-start justify-between mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-gray-800">🏥 Hospital Inventory Dashboard</h1>
+        <Link to="/notifications" className="relative mt-1">
+          <Bell className="h-6 w-6 text-gray-700" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-2 -right-2 rounded-full bg-red-500 px-2 py-0.5 text-xs font-semibold text-white">
+              {unreadCount}
+            </span>
+          )}
+        </Link>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {categories.map(({ name, icon: Icon, total, stats, detailedStats }) => {

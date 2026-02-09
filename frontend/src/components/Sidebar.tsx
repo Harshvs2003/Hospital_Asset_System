@@ -9,12 +9,14 @@ import {
   QrCode,
   BarChart3,
   Bell,
+  BellRing,
   Menu,
   X,
   LogOut,
   User,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { get } from "../lib/api";
 
 type SidebarProps = {
   mobileOpen?: boolean;
@@ -26,6 +28,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const menuItems = [
     { label: "Dashboard", icon: Home, path: "/" },
@@ -33,14 +36,34 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose }) => {
     { label: "Add Assets", icon: Plus, path: "/add-assets" },
     { label: "Complain", icon: AlertCircle, path: "/complain" },
     { label: "Complaints", icon: ClipboardList, path: "/complaints" },
+    { label: "Notifications", icon: Bell, path: "/notifications", badge: unreadCount },
     { label: "QR Generator", icon: QrCode, path: "/qr-gen" },
     ...(user && ["ADMIN", "SUPERVISOR", "VIEWER"].includes(user.role)
-      ? [{ label: "Reminders", icon: Bell, path: "/reminders" }]
+      ? [{ label: "Reminders", icon: BellRing, path: "/reminders" }]
       : []),
     { label: "Report", icon: BarChart3, path: "/report" },
   ];
 
   const isActive = (path: string) => location.pathname === path;
+
+  React.useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const res = await get("/notifications/unread-count");
+        const count = res?.data?.count ?? res?.count ?? 0;
+        if (mounted) setUnreadCount(count);
+      } catch {
+        if (mounted) setUnreadCount(0);
+      }
+    };
+    load();
+    const id = setInterval(load, 20000);
+    return () => {
+      mounted = false;
+      clearInterval(id);
+    };
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -100,8 +123,22 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose }) => {
               title={!isOpen ? item.label : ""}
               onClick={() => mobileOpen && onClose?.()}
             >
-              <Icon size={20} className="shrink-0" />
-              {showLabels && <span className="text-sm font-medium">{item.label}</span>}
+              <div className="relative">
+                <Icon size={20} className="shrink-0" />
+                {!showLabels && item.badge > 0 && (
+                  <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500" />
+                )}
+              </div>
+              {showLabels && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{item.label}</span>
+                  {item.badge > 0 && (
+                    <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-semibold text-white">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+              )}
             </Link>
           );
         })}

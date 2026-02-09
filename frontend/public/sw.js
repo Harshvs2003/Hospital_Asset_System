@@ -60,3 +60,38 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { title: "Notification", body: "You have a new update." };
+  }
+
+  const title = data.title || "Notification";
+  const options = {
+    body: data.body || "You have a new update.",
+    data: data.data || {},
+    badge: "/icons/icon-192.svg",
+    icon: "/icons/icon-192.svg",
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification?.data?.url || "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsArr) => {
+      for (const client of clientsArr) {
+        if (client.url.includes(url) && "focus" in client) {
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+      return undefined;
+    })
+  );
+});

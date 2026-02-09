@@ -4,6 +4,7 @@ import {
   getDepartmentNameById,
   isValidDepartmentId,
 } from "../config/departments.js";
+import { fetchDeptUsers, fetchUsersByRole, notifyUsers } from "../utils/notificationService.js";
 
 // Helper for date formatting
 const formatIST = (date) =>
@@ -114,6 +115,25 @@ export const addAsset = async (req, res) => {
     });
 
     await newAsset.save();
+
+    try {
+      const deptUsers = await fetchDeptUsers(departmentId);
+      const managers = await fetchUsersByRole(["SUPERVISOR", "ADMIN"]);
+      await notifyUsers({
+        users: [...deptUsers, ...managers],
+        title: "New asset added",
+        body: `${newAsset.name || "Asset"} added to ${resolvedDepartmentName || "department"}.`,
+        type: "ASSET_CREATED",
+        data: {
+          assetId: newAsset.assetId,
+          departmentId: newAsset.departmentId,
+          url: `/assets/${newAsset.assetId}`,
+        },
+        departmentId: newAsset.departmentId,
+      });
+    } catch (notifyErr) {
+      console.error("Asset notify error:", notifyErr);
+    }
 
     const response = {
       ...newAsset.toObject(),

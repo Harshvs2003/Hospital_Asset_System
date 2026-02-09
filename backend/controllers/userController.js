@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import User from "../models/users_model.js";
+import { fetchUsersByRole, notifyUsers } from "../utils/notificationService.js";
 
 const error = (res, status, message) =>
   res.status(status).json({ success: false, message });
@@ -43,6 +44,21 @@ export const createUser = async (req, res) => {
       departmentId,
       isActive,
     });
+
+    try {
+      const managers = await fetchUsersByRole(["ADMIN", "SUPERVISOR"]);
+      await notifyUsers({
+        users: [...managers, user],
+        title: "User created",
+        body: `${user.name} (${user.role}) account created.`,
+        type: "USER_CREATED",
+        data: { userId: user._id, role: user.role, departmentId: user.departmentId, url: "/" },
+        departmentId: user.departmentId || null,
+      });
+    } catch (notifyErr) {
+      console.error("User created notify error:", notifyErr);
+    }
+
     return res.status(201).json({ success: true, data: { ...user.toObject(), password: undefined } });
   } catch (err) {
     console.error("Create user error:", err);

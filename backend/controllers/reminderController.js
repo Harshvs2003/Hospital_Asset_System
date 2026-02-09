@@ -3,6 +3,7 @@ import Asset from "../models/assets_model.js";
 import User from "../models/users_model.js";
 import { sendEmail } from "../utils/emailSender.js";
 import { reminderEmailTemplate, reminderUpdateTemplate } from "../utils/emailTemplates.js";
+import { fetchDeptUsers, fetchUsersByRole, notifyUsers } from "../utils/notificationService.js";
 
 const TZ = "Asia/Kolkata";
 
@@ -109,6 +110,19 @@ export const runReminders = async (_req, res) => {
               daysLeft,
               startDays,
             });
+            const deptUsers = await fetchDeptUsers(asset.departmentId);
+            const supervisors = await fetchUsersByRole(["SUPERVISOR"]);
+            const admins = process.env.REMINDER_NOTIFY_ADMIN === "true"
+              ? await fetchUsersByRole(["ADMIN"])
+              : [];
+            await notifyUsers({
+              users: [...deptUsers, ...supervisors, ...admins],
+              title: "Service due reminder",
+              body: `${payload.assetName} (${payload.assetId}) service due in ${payload.daysLeft} day(s).`,
+              type: "REMINDER_SERVICE",
+              data: { ...payload, url: "/reminders" },
+              departmentId: asset.departmentId || null,
+            });
             await Promise.all(
               supervisors.map((s) =>
                 sendEmail({
@@ -145,6 +159,19 @@ export const runReminders = async (_req, res) => {
               type: "contract",
               daysLeft,
               startDays,
+            });
+            const deptUsers = await fetchDeptUsers(asset.departmentId);
+            const supervisors = await fetchUsersByRole(["SUPERVISOR"]);
+            const admins = process.env.REMINDER_NOTIFY_ADMIN === "true"
+              ? await fetchUsersByRole(["ADMIN"])
+              : [];
+            await notifyUsers({
+              users: [...deptUsers, ...supervisors, ...admins],
+              title: "Contract expiry reminder",
+              body: `${payload.assetName} (${payload.assetId}) contract expires in ${payload.daysLeft} day(s).`,
+              type: "REMINDER_CONTRACT",
+              data: { ...payload, url: "/reminders" },
+              departmentId: asset.departmentId || null,
             });
             await Promise.all(
               supervisors.map((s) =>

@@ -1,5 +1,7 @@
 import Complaint from "../models/complaint_model.js";
 import Asset from "../models/assets_model.js";
+import User from "../models/users_model.js";
+import { fetchDeptUsers, fetchUsersByRole, notifyUsers } from "../utils/notificationService.js";
 
 const ok = (res, message, data, status = 200) =>
   res.status(status).json({ success: true, message, data });
@@ -80,6 +82,27 @@ export const createComplaint = async (req, res) => {
     });
 
     await c.save();
+
+    try {
+      const deptUsers = await fetchDeptUsers(deptId);
+      const managers = await fetchUsersByRole(["SUPERVISOR", "ADMIN"]);
+      await notifyUsers({
+        users: [...deptUsers, ...managers],
+        title: "New complaint created",
+        body: `Complaint filed for department ${deptId}.`,
+        type: "COMPLAINT_CREATED",
+        data: {
+          complaintId: c._id,
+          departmentId: deptId,
+          assetId: assetId || null,
+          url: `/complaints/${c._id}`,
+        },
+        departmentId: deptId,
+      });
+    } catch (notifyErr) {
+      console.error("Complaint create notify error:", notifyErr);
+    }
+
     return ok(res, "Complaint created", c, 201);
   } catch (err) {
     console.error("Error creating complaint", err);
@@ -171,6 +194,28 @@ export const supervisorResolveComplaint = async (req, res) => {
     });
 
     await complaint.save();
+
+    try {
+      const deptUsers = await fetchDeptUsers(complaint.departmentId);
+      const managers = await fetchUsersByRole(["SUPERVISOR"]);
+      const creator = await User.findById(complaint.createdBy).select("_id role departmentId");
+      const users = creator ? [...deptUsers, ...managers, creator] : [...deptUsers, ...managers];
+      await notifyUsers({
+        users,
+        title: "Complaint resolved by supervisor",
+        body: `Complaint ${complaint._id} marked resolved.`,
+        type: "COMPLAINT_RESOLVED",
+        data: {
+          complaintId: complaint._id,
+          departmentId: complaint.departmentId,
+          url: `/complaints/${complaint._id}`,
+        },
+        departmentId: complaint.departmentId,
+      });
+    } catch (notifyErr) {
+      console.error("Complaint resolve notify error:", notifyErr);
+    }
+
     return ok(res, "Complaint resolved by supervisor", complaint);
   } catch (err) {
     console.error("Error resolving complaint", err);
@@ -225,6 +270,28 @@ export const closeComplaint = async (req, res) => {
     });
 
     await complaint.save();
+
+    try {
+      const deptUsers = await fetchDeptUsers(complaint.departmentId);
+      const managers = await fetchUsersByRole(["SUPERVISOR"]);
+      const creator = await User.findById(complaint.createdBy).select("_id role departmentId");
+      const users = creator ? [...deptUsers, ...managers, creator] : [...deptUsers, ...managers];
+      await notifyUsers({
+        users,
+        title: "Complaint closed",
+        body: `Complaint ${complaint._id} closed.`,
+        type: "COMPLAINT_CLOSED",
+        data: {
+          complaintId: complaint._id,
+          departmentId: complaint.departmentId,
+          url: `/complaints/${complaint._id}`,
+        },
+        departmentId: complaint.departmentId,
+      });
+    } catch (notifyErr) {
+      console.error("Complaint close notify error:", notifyErr);
+    }
+
     return ok(res, "Complaint closed", complaint);
   } catch (err) {
     console.error("Error closing complaint", err);
@@ -282,6 +349,28 @@ export const reopenComplaint = async (req, res) => {
     });
 
     await complaint.save();
+
+    try {
+      const deptUsers = await fetchDeptUsers(complaint.departmentId);
+      const managers = await fetchUsersByRole(["SUPERVISOR"]);
+      const creator = await User.findById(complaint.createdBy).select("_id role departmentId");
+      const users = creator ? [...deptUsers, ...managers, creator] : [...deptUsers, ...managers];
+      await notifyUsers({
+        users,
+        title: "Complaint reopened",
+        body: `Complaint ${complaint._id} reopened.`,
+        type: "COMPLAINT_REOPENED",
+        data: {
+          complaintId: complaint._id,
+          departmentId: complaint.departmentId,
+          url: `/complaints/${complaint._id}`,
+        },
+        departmentId: complaint.departmentId,
+      });
+    } catch (notifyErr) {
+      console.error("Complaint reopen notify error:", notifyErr);
+    }
+
     return ok(res, "Complaint reopened", complaint);
   } catch (err) {
     console.error("Error reopening complaint", err);
