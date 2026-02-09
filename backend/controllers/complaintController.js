@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Complaint from "../models/complaint_model.js";
 import Asset from "../models/assets_model.js";
 import User from "../models/users_model.js";
@@ -34,6 +35,20 @@ const appendAssetHistory = async (assetId, entry) => {
     { assetId },
     { $push: { history: entry } }
   );
+};
+
+const resolveAssetForNotification = async (assetId) => {
+  if (!assetId) return { assetId: null, assetName: null };
+  let asset = null;
+  if (mongoose.isValidObjectId(assetId)) {
+    asset = await Asset.findById(assetId).select("assetId name").lean();
+  } else {
+    asset = await Asset.findOne({ assetId }).select("assetId name").lean();
+  }
+  return {
+    assetId: asset?.assetId || assetId,
+    assetName: asset?.name || null,
+  };
 };
 
 // POST /api/complaints
@@ -84,17 +99,21 @@ export const createComplaint = async (req, res) => {
     await c.save();
 
     try {
+      const assetInfo = await resolveAssetForNotification(assetId || null);
       const deptUsers = await fetchDeptUsers(deptId);
       const managers = await fetchUsersByRole(["SUPERVISOR", "ADMIN"]);
       await notifyUsers({
         users: [...deptUsers, ...managers],
         title: "New complaint created",
-        body: `Complaint filed for department ${deptId}.`,
+        body: assetInfo.assetName
+          ? `Complaint filed for ${assetInfo.assetName} (${assetInfo.assetId}).`
+          : `Complaint filed for department ${deptId}.`,
         type: "COMPLAINT_CREATED",
         data: {
           complaintId: c._id,
           departmentId: deptId,
-          assetId: assetId || null,
+          assetId: assetInfo.assetId,
+          assetName: assetInfo.assetName,
           url: `/complaints/${c._id}`,
         },
         departmentId: deptId,
@@ -196,6 +215,7 @@ export const supervisorResolveComplaint = async (req, res) => {
     await complaint.save();
 
     try {
+      const assetInfo = await resolveAssetForNotification(complaint.assetId || null);
       const deptUsers = await fetchDeptUsers(complaint.departmentId);
       const managers = await fetchUsersByRole(["SUPERVISOR"]);
       const creator = await User.findById(complaint.createdBy).select("_id role departmentId");
@@ -203,11 +223,15 @@ export const supervisorResolveComplaint = async (req, res) => {
       await notifyUsers({
         users,
         title: "Complaint resolved by supervisor",
-        body: `Complaint ${complaint._id} marked resolved.`,
+        body: assetInfo.assetName
+          ? `Complaint resolved for ${assetInfo.assetName} (${assetInfo.assetId}).`
+          : `Complaint ${complaint._id} marked resolved.`,
         type: "COMPLAINT_RESOLVED",
         data: {
           complaintId: complaint._id,
           departmentId: complaint.departmentId,
+          assetId: assetInfo.assetId,
+          assetName: assetInfo.assetName,
           url: `/complaints/${complaint._id}`,
         },
         departmentId: complaint.departmentId,
@@ -272,6 +296,7 @@ export const closeComplaint = async (req, res) => {
     await complaint.save();
 
     try {
+      const assetInfo = await resolveAssetForNotification(complaint.assetId || null);
       const deptUsers = await fetchDeptUsers(complaint.departmentId);
       const managers = await fetchUsersByRole(["SUPERVISOR"]);
       const creator = await User.findById(complaint.createdBy).select("_id role departmentId");
@@ -279,11 +304,15 @@ export const closeComplaint = async (req, res) => {
       await notifyUsers({
         users,
         title: "Complaint closed",
-        body: `Complaint ${complaint._id} closed.`,
+        body: assetInfo.assetName
+          ? `Complaint closed for ${assetInfo.assetName} (${assetInfo.assetId}).`
+          : `Complaint ${complaint._id} closed.`,
         type: "COMPLAINT_CLOSED",
         data: {
           complaintId: complaint._id,
           departmentId: complaint.departmentId,
+          assetId: assetInfo.assetId,
+          assetName: assetInfo.assetName,
           url: `/complaints/${complaint._id}`,
         },
         departmentId: complaint.departmentId,
@@ -351,6 +380,7 @@ export const reopenComplaint = async (req, res) => {
     await complaint.save();
 
     try {
+      const assetInfo = await resolveAssetForNotification(complaint.assetId || null);
       const deptUsers = await fetchDeptUsers(complaint.departmentId);
       const managers = await fetchUsersByRole(["SUPERVISOR"]);
       const creator = await User.findById(complaint.createdBy).select("_id role departmentId");
@@ -358,11 +388,15 @@ export const reopenComplaint = async (req, res) => {
       await notifyUsers({
         users,
         title: "Complaint reopened",
-        body: `Complaint ${complaint._id} reopened.`,
+        body: assetInfo.assetName
+          ? `Complaint reopened for ${assetInfo.assetName} (${assetInfo.assetId}).`
+          : `Complaint ${complaint._id} reopened.`,
         type: "COMPLAINT_REOPENED",
         data: {
           complaintId: complaint._id,
           departmentId: complaint.departmentId,
+          assetId: assetInfo.assetId,
+          assetName: assetInfo.assetName,
           url: `/complaints/${complaint._id}`,
         },
         departmentId: complaint.departmentId,
