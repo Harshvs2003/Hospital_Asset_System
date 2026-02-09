@@ -46,24 +46,32 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose }) => {
 
   const isActive = (path: string) => location.pathname === path;
 
+  const refreshUnread = React.useCallback(async () => {
+    try {
+      const res = await get("/notifications/unread-count");
+      const count = res?.data?.count ?? res?.count ?? 0;
+      setUnreadCount(count);
+    } catch {
+      setUnreadCount(0);
+    }
+  }, []);
+
   React.useEffect(() => {
     let mounted = true;
     const load = async () => {
-      try {
-        const res = await get("/notifications/unread-count");
-        const count = res?.data?.count ?? res?.count ?? 0;
-        if (mounted) setUnreadCount(count);
-      } catch {
-        if (mounted) setUnreadCount(0);
-      }
+      if (!mounted) return;
+      await refreshUnread();
     };
     load();
     const id = setInterval(load, 20000);
+    const onRead = () => refreshUnread();
+    window.addEventListener("notifications:read", onRead);
     return () => {
       mounted = false;
       clearInterval(id);
+      window.removeEventListener("notifications:read", onRead);
     };
-  }, []);
+  }, [refreshUnread]);
 
   const handleLogout = async () => {
     await logout();

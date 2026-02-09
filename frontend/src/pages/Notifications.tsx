@@ -47,7 +47,11 @@ const NotificationsPage: React.FC = () => {
     const id = setInterval(fetchList, 15000);
     return () => {
       clearInterval(id);
-      post("/notifications/mark-read").catch(() => {});
+      post("/notifications/mark-read")
+        .catch(() => {})
+        .finally(() => {
+          window.dispatchEvent(new Event("notifications:read"));
+        });
     };
   }, [fetchList]);
 
