@@ -159,8 +159,8 @@ const RemindersPage: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="page space-y-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-semibold text-slate-900">Reminders</h1>
           <p className="text-sm text-slate-500">Service due and contract expiry reminders</p>
@@ -185,8 +185,8 @@ const RemindersPage: React.FC = () => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by asset name or ID"
-              className="w-51 rounded-lg border border-slate-300 px-4 py-2 text-sm"
-            /> 
+              className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm sm:w-64"
+            />
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
@@ -229,7 +229,7 @@ const RemindersPage: React.FC = () => {
         <div className="text-sm text-red-600">{error}</div>
       ) : (
         <>
-          <div className="w-120 space-y-3">
+          <div className="space-y-3">
             <h2 className="text-lg font-semibold text-slate-900">Service Reminders</h2>
             {filterList(serviceReminders).length === 0 ? (
               <div className="text-sm text-slate-500">No active service reminders.</div>
@@ -238,7 +238,7 @@ const RemindersPage: React.FC = () => {
             )}
           </div>
 
-          <div className="w-120 space-y-3">
+          <div className="space-y-3">
             <h2 className="text-lg font-semibold text-slate-900">Contract Expiry Reminders</h2>
             {filterList(contractReminders).length === 0 ? (
               <div className="text-sm text-slate-500">No active contract reminders.</div>
@@ -285,7 +285,7 @@ const RemindersPage: React.FC = () => {
 
       {completeModal.open && completeModal.item && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-md rounded-2xl bg-white panel-pad shadow-xl">
             <h3 className="text-lg font-semibold text-slate-900 mb-2">
               Update {completeModal.item.type === "service" ? "Service Date" : "Contract Date"}
             </h3>

@@ -121,10 +121,10 @@ const AddAssetsPage: React.FC = () => {
   );
 
   return (
-    <div className="p-6">
+    <div className="page">
       <h1 className="text-3xl font-bold mb-6">Add New Asset</h1>
 
-      <div className="bg-white rounded-lg shadow p-6 max-w-2xl">
+      <div className="bg-white rounded-lg shadow panel-pad max-w-2xl w-full">
         {isViewer ? (
           <div className="text-sm text-gray-600">
             You do not have permission to add assets.

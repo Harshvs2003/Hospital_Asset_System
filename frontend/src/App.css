@@ -33,3 +33,13 @@
 .card-back {
 	transform: rotateY(180deg);
 }
+
+@layer components {
+	.page {
+		@apply p-4 sm:p-6;
+	}
+
+	.panel-pad {
+		@apply p-4 sm:p-6;
+	}
+}

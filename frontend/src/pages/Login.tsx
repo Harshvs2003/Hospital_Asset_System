@@ -37,7 +37,7 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-8">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-6 sm:p-8">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">

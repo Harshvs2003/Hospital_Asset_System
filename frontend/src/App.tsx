@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import ProtectedRoute from './components/ProtectedRoute'
 import Dashboard from './pages/dashboard'
@@ -18,9 +18,17 @@ import ForgotPassword from './pages/ForgotPassword'
 import { useAuth } from './context/AuthContext'
 import AuthBoot from './components/AuthBoot'
 import './App.css'
+import { Menu } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 function App() {
   const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname]);
 
   if (isLoading) {
     return <AuthBoot />;
@@ -39,9 +47,21 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen">
-      <Sidebar />
-      <div className="flex-1 overflow-auto">
+    <div className="flex min-h-screen bg-gray-100">
+      <Sidebar mobileOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-white px-4 py-3 md:hidden">
+          <button
+            onClick={() => setMobileNavOpen(true)}
+            className="rounded-lg border border-gray-200 p-2 text-gray-700 hover:bg-gray-50"
+            aria-label="Open navigation"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="text-sm font-semibold text-gray-900">HealthAsset</div>
+          <div className="h-9 w-9" />
+        </header>
+        <div className="flex-1 overflow-auto">
         <Routes>
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />
@@ -55,6 +75,7 @@ function App() {
           <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </div>
       </div>
     </div>
   )

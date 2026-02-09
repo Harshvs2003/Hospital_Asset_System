@@ -16,7 +16,12 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
-const Sidebar: React.FC = () => {
+type SidebarProps = {
+  mobileOpen?: boolean;
+  onClose?: () => void;
+};
+
+const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose }) => {
   const [isOpen, setIsOpen] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
@@ -42,12 +47,22 @@ const Sidebar: React.FC = () => {
     navigate("/login");
   };
 
+  const showLabels = isOpen || mobileOpen;
+  const widthClass = isOpen ? "md:w-56" : "md:w-20";
+
   return (
-    <aside
-      className={`${isOpen ? "w-56" : "w-20"} bg-gray-800 text-white transition-all duration-300 ease-in-out flex flex-col shadow-lg`}
-    >
+    <>
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          onClick={onClose}
+        />
+      )}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col ${widthClass} transform bg-gray-800 text-white shadow-lg transition-all duration-300 ease-in-out md:static md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+      >
       <div className="flex items-center justify-between p-4 border-b border-gray-700">
-        {isOpen && (
+        {showLabels && (
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold">HA</span>
@@ -55,7 +70,18 @@ const Sidebar: React.FC = () => {
             <h1 className="text-lg font-bold">HealthAsset</h1>
           </div>
         )}
-        <button onClick={() => setIsOpen(!isOpen)} className="p-2 hover:bg-gray-700 rounded-lg transition">
+        <button
+          onClick={onClose}
+          className="p-2 hover:bg-gray-700 rounded-lg transition md:hidden"
+          aria-label="Close navigation"
+        >
+          <X size={20} />
+        </button>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="hidden p-2 hover:bg-gray-700 rounded-lg transition md:inline-flex"
+          aria-label="Toggle sidebar"
+        >
           {isOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
@@ -72,9 +98,10 @@ const Sidebar: React.FC = () => {
                 active ? "bg-blue-600 text-white shadow-lg" : "text-gray-300 hover:bg-gray-700 hover:text-white"
               }`}
               title={!isOpen ? item.label : ""}
+              onClick={() => mobileOpen && onClose?.()}
             >
               <Icon size={20} className="shrink-0" />
-              {isOpen && <span className="text-sm font-medium">{item.label}</span>}
+              {showLabels && <span className="text-sm font-medium">{item.label}</span>}
             </Link>
           );
         })}
@@ -82,7 +109,7 @@ const Sidebar: React.FC = () => {
 
       <div className="border-t border-gray-700 p-4 space-y-3">
         {/* User Info */}
-        {user && isOpen && (
+        {user && showLabels && (
           <div className="bg-gray-700 rounded-lg p-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center shrink-0">
@@ -102,10 +129,11 @@ const Sidebar: React.FC = () => {
           title="Logout"
         >
           <LogOut size={20} className="shrink-0" />
-          {isOpen && <span className="text-sm font-medium">Logout</span>}
+          {showLabels && <span className="text-sm font-medium">Logout</span>}
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 };
 

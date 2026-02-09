@@ -126,7 +126,7 @@ const AssetsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="page space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Asset Inventory</h1>
         <p className="text-gray-600 mt-1">
@@ -213,40 +213,40 @@ const AssetsPage: React.FC = () => {
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           {loading ? (
-            <div className="p-6 text-sm text-gray-500">Loading assets...</div>
+            <div className="panel-pad text-sm text-gray-500">Loading assets...</div>
           ) : error ? (
-            <div className="p-6 text-sm text-red-600">{error}</div>
+            <div className="panel-pad text-sm text-red-600">{error}</div>
           ) : filteredByAll.length === 0 ? (
-            <div className="p-6 text-sm text-gray-500">No assets found.</div>
+            <div className="panel-pad text-sm text-gray-500">No assets found.</div>
           ) : (
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6 sm:py-3">
                     Unique ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6 sm:py-3">
                     Asset Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6 sm:py-3">
                     Category
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6 sm:py-3">
                     Date In
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6 sm:py-3">
                     Location
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6 sm:py-3">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6 sm:py-3">
                     Assigned To
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6 sm:py-3">
                     Department
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6 sm:py-3">
                     Actions
                   </th>
                 </tr>
@@ -254,21 +254,21 @@ const AssetsPage: React.FC = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {paginatedAssets.map((a) => (
                   <tr key={a._id || a.assetId} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{a.assetId}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{a.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{a.category}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-900 sm:px-6 sm:py-4">{a.assetId}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900 sm:px-6 sm:py-4">{a.name}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 sm:px-6 sm:py-4">{a.category}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 sm:px-6 sm:py-4">
                       {a.storeindate ? new Date(a.storeindate).toISOString().slice(0, 10) : "-"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{a.location}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 sm:px-6 sm:py-4">{a.location}</td>
+                    <td className="px-3 py-3 whitespace-nowrap sm:px-6 sm:py-4">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(a.status)}`}>
                         {a.status || "Unknown"}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{a.assignedTo || "-"}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{a.departmentName || "-"}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 sm:px-6 sm:py-4">{a.assignedTo || "-"}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 sm:px-6 sm:py-4">{a.departmentName || "-"}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-sm sm:px-6 sm:py-4">
                       <button onClick={() => onViewAsset(a)} className="text-blue-600 hover:text-blue-800 flex items-center">
                         <Eye className="h-4 w-4 mr-1" />
                         View
@@ -281,11 +281,11 @@ const AssetsPage: React.FC = () => {
           )}
         </div>
 
-        <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
+        <div className="bg-gray-50 px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 border-t border-gray-200">
           <div className="text-sm text-gray-700">
             Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredByAll.length)} of {filteredByAll.length} results
           </div>
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}

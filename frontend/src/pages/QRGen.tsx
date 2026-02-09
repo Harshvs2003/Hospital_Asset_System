@@ -274,7 +274,7 @@ const QRGenPage: React.FC = () => {
 
   // UI
   return (
-    <div className="p-6 space-y-6">
+    <div className="page space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">QR Generator</h1>
         <p className="text-gray-600 mt-1">
@@ -284,7 +284,7 @@ const QRGenPage: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex gap-2 items-center">
+        <div className="flex flex-wrap gap-2 items-center">
           {canUseRecent && (
             <button
               onClick={() => setMode("recent")}
@@ -306,7 +306,7 @@ const QRGenPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-white rounded-lg shadow p-4">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-3">
                 <div className="text-sm text-gray-700">
                   Recently added (not QR-generated)
                 </div>
@@ -390,8 +390,8 @@ const QRGenPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setRecentPage((p) => Math.max(1, p - 1))}
                     disabled={recentPage === 1}
@@ -408,7 +408,7 @@ const QRGenPage: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => openPrintView(getSelectedAssets())}
                     disabled={loading || getSelectedAssets().length === 0}
@@ -478,8 +478,8 @@ const QRGenPage: React.FC = () => {
       ) : (
         // Specific mode
         <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="relative w-full md:flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 className="w-full pl-10 pr-3 py-2 border rounded"
@@ -491,7 +491,7 @@ const QRGenPage: React.FC = () => {
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Category filter */}
               <select
                 value={categoryFilter}
@@ -556,7 +556,7 @@ const QRGenPage: React.FC = () => {
                 ))}
               </div>
             ) : selectedAsset ? (
-              <div className="mt-4 flex gap-4 items-center">
+              <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
                 <img
                   src={generateQRCodeURL(
                     selectedAsset.assetId || selectedAsset._id || "",

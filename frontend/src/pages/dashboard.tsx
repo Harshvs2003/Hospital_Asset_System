@@ -131,8 +131,8 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="p-6 min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-200">
-      <h1 className="text-3xl font-semibold mb-8 text-gray-800">🏥 Hospital Inventory Dashboard</h1>
+    <div className="page min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-200">
+      <h1 className="text-2xl sm:text-3xl font-semibold mb-6 sm:mb-8 text-gray-800">🏥 Hospital Inventory Dashboard</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {categories.map(({ name, icon: Icon, total, stats, detailedStats }) => {

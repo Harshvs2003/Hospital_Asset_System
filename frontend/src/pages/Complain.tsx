@@ -103,10 +103,10 @@ const ComplainPage: React.FC = () => {
   );
 
   return (
-    <div className="p-6">
+    <div className="page">
       <h1 className="text-3xl font-bold mb-6">File a Complaint</h1>
 
-      <div className="bg-white rounded-lg shadow p-6 max-w-2xl">
+      <div className="bg-white rounded-lg shadow panel-pad max-w-2xl w-full">
         {submitted ? (
           <div className="bg-green-100 text-green-800 p-4 rounded-lg text-center">
             ✅ Complaint submitted successfully!

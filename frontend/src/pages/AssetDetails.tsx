@@ -439,7 +439,7 @@ const AssetDetails: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="page space-y-6">
       <div>
         <button
           onClick={() => navigate(-1)}
@@ -455,7 +455,7 @@ const AssetDetails: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left / main column (Asset info + history) */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow panel-pad">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Asset Information</h3>
 
             {!asset ? (
@@ -531,7 +531,7 @@ const AssetDetails: React.FC = () => {
           </div>
 
           {/* Asset History */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow panel-pad">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">Asset History</h3>
                 <div className="flex items-center gap-3">
@@ -560,7 +560,7 @@ const AssetDetails: React.FC = () => {
 
         {/* Right / sticky sidebar (QR + quick actions + complaints) */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-lg shadow p-6 sticky top-6 space-y-4">
+          <div className="bg-white rounded-lg shadow panel-pad sticky top-6 space-y-4">
             <div className="flex items-center mb-2">
               <QrCode className="h-5 w-5 text-blue-600 mr-2" />
               <h4 className="text-lg font-semibold text-gray-900">Asset QR Code</h4>
@@ -641,7 +641,7 @@ const AssetDetails: React.FC = () => {
                       className="absolute inset-0 bg-black opacity-30"
                       onClick={() => setShowHistoryExportModal(false)}
                     />
-                    <div className="bg-white rounded-lg shadow-lg p-6 z-10 w-96">
+                    <div className="bg-white rounded-lg shadow-lg panel-pad z-10 w-full max-w-md">
                       <h4 className="text-lg font-semibold mb-4">Export Asset History</h4>
                       <div className="mb-3">
                         <label className="inline-flex items-center gap-2 text-sm text-gray-700">
@@ -708,7 +708,7 @@ const AssetDetails: React.FC = () => {
                   {showLocationModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center">
                       <div className="absolute inset-0 bg-black opacity-30" onClick={() => setShowLocationModal(false)} />
-                      <div className="bg-white rounded-lg shadow-lg p-6 z-10 w-96">
+                      <div className="bg-white rounded-lg shadow-lg panel-pad z-10 w-full max-w-md">
                         <h4 className="text-lg font-semibold mb-2">Update Location</h4>
                         <input
                           value={locationModalValue}
@@ -737,7 +737,7 @@ const AssetDetails: React.FC = () => {
                   {showStatusModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center">
                       <div className="absolute inset-0 bg-black opacity-30" onClick={() => setShowStatusModal(false)} />
-                      <div className="bg-white rounded-lg shadow-lg p-6 z-10 w-96">
+                      <div className="bg-white rounded-lg shadow-lg panel-pad z-10 w-full max-w-md">
                         <h4 className="text-lg font-semibold mb-2">Change Status</h4>
                         <select
                           value={statusModalValue}
@@ -772,7 +772,7 @@ const AssetDetails: React.FC = () => {
                   {showAssignModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center">
                       <div className="absolute inset-0 bg-black opacity-30" onClick={() => setShowAssignModal(false)} />
-                      <div className="bg-white rounded-lg shadow-lg p-6 z-10 w-96">
+                      <div className="bg-white rounded-lg shadow-lg panel-pad z-10 w-full max-w-md">
                         <h4 className="text-lg font-semibold mb-2">Assign To</h4>
                         <input
                           value={assignModalValue}
@@ -801,7 +801,7 @@ const AssetDetails: React.FC = () => {
                   {showDepartmentModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center">
                       <div className="absolute inset-0 bg-black opacity-30" onClick={() => setShowDepartmentModal(false)} />
-                      <div className="bg-white rounded-lg shadow-lg p-6 z-10 w-96">
+                      <div className="bg-white rounded-lg shadow-lg panel-pad z-10 w-full max-w-md">
                         <h4 className="text-lg font-semibold mb-4">Update Department</h4>
                         <div className="mb-4">
                           <label className="block text-sm font-medium text-gray-700 mb-1">Department ID</label>
@@ -845,7 +845,7 @@ const AssetDetails: React.FC = () => {
                   {showReminderModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center">
                       <div className="absolute inset-0 bg-black opacity-30" onClick={() => setShowReminderModal(false)} />
-                      <div className="bg-white rounded-lg shadow-lg p-6 z-10 w-[520px]">
+                      <div className="bg-white rounded-lg shadow-lg panel-pad z-10 w-full max-w-xl">
                         <h4 className="text-lg font-semibold mb-4">Update Reminders</h4>
 
                         <div className="grid grid-cols-2 gap-4 mb-4">

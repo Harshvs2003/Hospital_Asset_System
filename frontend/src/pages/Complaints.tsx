@@ -155,9 +155,9 @@ const ComplaintsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-slate-900 via-slate-800 to-blue-900 p-6 text-white shadow-lg">
-        <div className="absolute right-6 top-6 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
+    <div className="page space-y-6">
+      <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-slate-900 via-slate-800 to-blue-900 panel-pad text-white shadow-lg">
+        <div className="absolute right-4 top-4 h-20 w-20 rounded-full bg-white/10 blur-2xl sm:right-6 sm:top-6 sm:h-24 sm:w-24" />
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.2em] text-blue-200">Complaint Hub</p>
@@ -263,15 +263,15 @@ const ComplaintsPage: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className="p-6 text-sm text-slate-500">Loading complaints...</div>
+          <div className="panel-pad text-sm text-slate-500">Loading complaints...</div>
         ) : error ? (
-          <div className="p-6 text-sm text-red-600">{error}</div>
+          <div className="panel-pad text-sm text-red-600">{error}</div>
         ) : filteredComplaints.length === 0 ? (
-          <div className="p-6 text-sm text-slate-500">No complaints found.</div>
+          <div className="panel-pad text-sm text-slate-500">No complaints found.</div>
         ) : (
           <div className="divide-y divide-slate-200">
             {filteredComplaints.map((c) => (
-              <div key={c._id} className="grid gap-4 p-6 md:grid-cols-[1.4fr_1fr_1fr_1fr_auto]">
+              <div key={c._id} className="grid gap-4 p-4 sm:p-6 md:grid-cols-[1.4fr_1fr_1fr_1fr_auto]">
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-semibold text-slate-900">{c.type}</span>
@@ -347,7 +347,7 @@ const ComplaintsPage: React.FC = () => {
 
       {action && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-md rounded-2xl bg-white panel-pad shadow-xl">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-slate-900">
                 {action.type === "resolve" && "Supervisor Resolve"}

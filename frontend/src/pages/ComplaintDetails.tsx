@@ -63,7 +63,7 @@ const ComplaintDetails: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="page space-y-4">
       <div>
         <button
           onClick={() => navigate(-1)}
@@ -80,7 +80,7 @@ const ComplaintDetails: React.FC = () => {
       ) : !complaint ? (
         <div className="text-sm text-slate-500">Complaint not found.</div>
       ) : (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+        <div className="rounded-2xl border border-slate-200 bg-white panel-pad shadow-sm space-y-4">
           <div>
             <h1 className="text-2xl font-semibold text-slate-900">{complaint.type}</h1>
             <p className="text-sm text-slate-500">{complaint.description}</p>

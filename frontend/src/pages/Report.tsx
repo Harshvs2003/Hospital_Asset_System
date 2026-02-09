@@ -312,8 +312,8 @@ const ReportPage: React.FC = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="bg-white rounded-lg shadow p-6">
+    <div className="page space-y-6">
+      <div className="bg-white rounded-lg shadow panel-pad">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">Reports & Analytics</h1>
@@ -431,16 +431,16 @@ const ReportPage: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="bg-white rounded-lg shadow p-6 text-sm text-gray-500">
+        <div className="bg-white rounded-lg shadow panel-pad text-sm text-gray-500">
           Loading assets...
         </div>
       ) : error ? (
-        <div className="bg-white rounded-lg shadow p-6 text-sm text-red-600">
+        <div className="bg-white rounded-lg shadow panel-pad text-sm text-red-600">
           {error}
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="bg-white rounded-lg shadow panel-pad mb-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Breakdown by Category</h3>
               <div className="text-xs text-gray-500">
@@ -473,7 +473,7 @@ const ReportPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="bg-white rounded-lg shadow panel-pad mb-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Breakdown by Location</h3>
               <div className="text-xs text-gray-500">
@@ -506,7 +506,7 @@ const ReportPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow panel-pad">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Assets Detail (Preview)</h3>
               <div className="text-xs text-gray-500">
