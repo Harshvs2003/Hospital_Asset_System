@@ -442,7 +442,13 @@ const AssetDetails: React.FC = () => {
     <div className="page space-y-6">
       <div>
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            if (window.history.length > 1) {
+              navigate(-1);
+            } else {
+              navigate("/assets");
+            }
+          }}
           className="inline-flex items-center text-sm text-gray-700 hover:text-gray-900 mb-3"
         >
           <ArrowLeft className="w-4 h-4 mr-2" /> Back
