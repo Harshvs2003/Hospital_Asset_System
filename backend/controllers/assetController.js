@@ -122,7 +122,7 @@ export const addAsset = async (req, res) => {
       await notifyUsers({
         users: [...deptUsers, ...managers],
         title: "New asset added",
-        body: `${newAsset.name || "Asset"} added to ${resolvedDepartmentName || "department"}.`,
+        body: `${newAsset.name || "Asset"} (${newAsset.assetId}) added to ${resolvedDepartmentName || "department"}.`,
         type: "ASSET_CREATED",
         data: {
           assetId: newAsset.assetId,

@@ -60,7 +60,7 @@ const buildReminderPayload = ({ asset, type, daysLeft, startDays }) => {
   return {
     type,
     assetDbId: String(asset._id),
-    assetId: asset.assetId || String(asset._id),
+    assetId: asset.assetId || null,
     assetName: asset.name || "",
     category: asset.category || "",
     departmentId: asset.departmentId || null,
@@ -115,10 +115,13 @@ export const runReminders = async (_req, res) => {
             const admins = process.env.REMINDER_NOTIFY_ADMIN === "true"
               ? await fetchUsersByRole(["ADMIN"])
               : [];
+            const label = payload.assetId
+              ? `${payload.assetName} (${payload.assetId})`
+              : `${payload.assetName}`;
             await notifyUsers({
               users: [...deptUsers, ...supervisors, ...admins],
               title: "Service due reminder",
-              body: `${payload.assetName} (${payload.assetId}) service due in ${payload.daysLeft} day(s).`,
+              body: `${label} service due in ${payload.daysLeft} day(s).`,
               type: "REMINDER_SERVICE",
               data: { ...payload, url: "/reminders" },
               departmentId: asset.departmentId || null,
@@ -165,10 +168,13 @@ export const runReminders = async (_req, res) => {
             const admins = process.env.REMINDER_NOTIFY_ADMIN === "true"
               ? await fetchUsersByRole(["ADMIN"])
               : [];
+            const label = payload.assetId
+              ? `${payload.assetName} (${payload.assetId})`
+              : `${payload.assetName}`;
             await notifyUsers({
               users: [...deptUsers, ...supervisors, ...admins],
               title: "Contract expiry reminder",
-              body: `${payload.assetName} (${payload.assetId}) contract expires in ${payload.daysLeft} day(s).`,
+              body: `${label} contract expires in ${payload.daysLeft} day(s).`,
               type: "REMINDER_CONTRACT",
               data: { ...payload, url: "/reminders" },
               departmentId: asset.departmentId || null,
