@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { get, post } from "../lib/api";
 
 type NotificationItem = {
@@ -123,20 +124,31 @@ const NotificationsPage: React.FC = () => {
         ) : items.length === 0 ? (
           <div className="panel-pad text-sm text-gray-500">No notifications yet.</div>
         ) : (
-          items.map((n) => (
-            <div
-              key={n._id}
-              className={`panel-pad flex flex-col gap-1 ${
-                n.isRead ? "bg-white" : "bg-blue-50 border-l-4 border-blue-500"
-              }`}
-            >
-              <div className="text-sm font-semibold text-gray-900">{n.title}</div>
-              <div className="text-sm text-gray-700">{n.body}</div>
-              <div className="text-xs text-gray-500">
-                {n.createdAt ? new Date(n.createdAt).toLocaleString() : ""}
+          items.map((n) => {
+            const href = n.data?.url;
+            const content = (
+              <>
+                <div className="text-sm font-semibold text-gray-900">{n.title}</div>
+                <div className="text-sm text-gray-700">{n.body}</div>
+                <div className="text-xs text-gray-500">
+                  {n.createdAt ? new Date(n.createdAt).toLocaleString() : ""}
+                </div>
+              </>
+            );
+            const className = `panel-pad flex flex-col gap-1 ${
+              n.isRead ? "bg-white" : "bg-blue-50 border-l-4 border-blue-500"
+            }`;
+
+            return href ? (
+              <Link key={n._id} to={href} className={className}>
+                {content}
+              </Link>
+            ) : (
+              <div key={n._id} className={className}>
+                {content}
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
