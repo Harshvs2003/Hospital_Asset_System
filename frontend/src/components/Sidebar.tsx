@@ -113,6 +113,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose }) => {
         {menuItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
+          const badge = item.badge ?? 0;
           return (
             <Link
               key={item.path}
@@ -125,16 +126,16 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose }) => {
             >
               <div className="relative">
                 <Icon size={20} className="shrink-0" />
-                {!showLabels && item.badge > 0 && (
+                {!showLabels && badge > 0 && (
                   <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500" />
                 )}
               </div>
               {showLabels && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{item.label}</span>
-                  {item.badge > 0 && (
+                  {badge > 0 && (
                     <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-semibold text-white">
-                      {item.badge}
+                      {badge}
                     </span>
                   )}
                 </div>
