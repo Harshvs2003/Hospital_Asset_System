@@ -4,6 +4,7 @@ import { get, post } from "../lib/api";
 import Select from "react-select";
 import { useAuth } from "../context/AuthContext";
 import { COMPLAINT_TYPES } from "../data/complaintTypes";
+import { DEPARTMENTS } from "../data/departments";
 
 type Asset = {
   _id?: string;
@@ -191,15 +192,21 @@ const ComplainPage: React.FC = () => {
             {isAdminSupervisor && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Department ID *
+                  Department *
                 </label>
-                <input
+                <select
                   value={departmentId}
                   onChange={(e) => setDepartmentId(e.target.value)}
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Department ID to file for"
-                />
+                >
+                  <option value="">Select Department</option>
+                  {DEPARTMENTS.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} ({d.id})
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
 
