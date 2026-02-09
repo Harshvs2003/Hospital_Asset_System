@@ -66,17 +66,7 @@ const ComplaintDetails: React.FC = () => {
     <div className="page space-y-4">
       <div>
         <button
-          onClick={() => {
-            if (window.history.length > 1) {
-              navigate(-1);
-              return;
-            }
-            if (complaint?.assetId) {
-              navigate(`/assets/${complaint.assetId}`);
-              return;
-            }
-            navigate("/complaints");
-          }}
+          onClick={() => navigate(-1)}
           className="text-sm text-slate-600 hover:text-slate-900"
         >
           Back
