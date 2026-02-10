@@ -2,7 +2,7 @@ name: Reminders Cron
 
 on:
   schedule:
-    - cron: "30 20 * * *" # daily at 03:00 UTC
+    - cron: "45 18 * * *" # daily at 03:00 UTC
   workflow_dispatch: {}
 
 jobs:
