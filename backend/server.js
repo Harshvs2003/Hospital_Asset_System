@@ -1,5 +1,7 @@
 // server.js
+import "./sentry.js";
 import express from "express";
+import * as Sentry from "@sentry/node";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import connectDB from "./config/db.js";
@@ -78,6 +80,11 @@ app.get("/_health", (_req, res) => res.status(200).json({ status: "ok", uptime: 
 app.get("/", (req, res) => {
   res.send("Hello from server. Automatic restart enabled for server.");
 });
+
+// Sentry error handler must be before the app's error handler
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
 
 // global error handler (JSON response)
 app.use((err, _req, res, _next) => {
