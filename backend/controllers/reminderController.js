@@ -102,7 +102,8 @@ export const runReminders = async (_req, res) => {
         const intervalDays = asset.reminderService.intervalDays;
         if (isValidInterval(startDays, intervalDays)) {
           const daysLeft = getDaysLeft(asset.lastServiceDate);
-          const shouldSend = shouldSendToday({ daysLeft, startDays, intervalDays });
+          const expiredToday = daysLeft === -1;
+          const shouldSend = expiredToday || shouldSendToday({ daysLeft, startDays, intervalDays });
           if (shouldSend && !alreadySentToday(asset.reminderServiceLastSentAt)) {
             const payload = buildReminderPayload({
               asset,
@@ -118,29 +119,36 @@ export const runReminders = async (_req, res) => {
             const label = payload.assetId
               ? `${payload.assetName} (${payload.assetId})`
               : `${payload.assetName}`;
+            const title = expiredToday ? "Service due expired" : "Service due reminder";
+            const body = expiredToday
+              ? `${label} service date expired.`
+              : `${label} service due in ${payload.daysLeft} day(s).`;
+            const type = expiredToday ? "REMINDER_SERVICE_EXPIRED" : "REMINDER_SERVICE";
             await notifyUsers({
               users: [...deptUsers, ...supervisors, ...admins],
-              title: "Service due reminder",
-              body: `${label} service due in ${payload.daysLeft} day(s).`,
-              type: "REMINDER_SERVICE",
+              title,
+              body,
+              type,
               data: { ...payload, url: "/reminders" },
               departmentId: asset.departmentId || null,
             });
-            await Promise.all(
-              supervisors.map((s) =>
-                sendEmail({
-                  to: s.email,
-                  subject: `Service Due Reminder: ${payload.assetName} (${payload.assetId})`,
-                  text: `Service due in ${payload.daysLeft} day(s).`,
-                  html: reminderEmailTemplate({
-                    name: s.name,
-                    reminder: payload,
-                    appName: process.env.APP_NAME || "Asset Operations",
-                  }),
-                })
-              )
-            );
-            sent += supervisors.length;
+            if (!expiredToday) {
+              await Promise.all(
+                supervisors.map((s) =>
+                  sendEmail({
+                    to: s.email,
+                    subject: `Service Due Reminder: ${payload.assetName} (${payload.assetId})`,
+                    text: `Service due in ${payload.daysLeft} day(s).`,
+                    html: reminderEmailTemplate({
+                      name: s.name,
+                      reminder: payload,
+                      appName: process.env.APP_NAME || "Asset Operations",
+                    }),
+                  })
+                )
+              );
+              sent += supervisors.length;
+            }
             await Asset.updateOne(
               { _id: asset._id },
               { $set: { reminderServiceLastSentAt: now } }
@@ -155,7 +163,8 @@ export const runReminders = async (_req, res) => {
         const intervalDays = asset.reminderContract.intervalDays;
         if (isValidInterval(startDays, intervalDays)) {
           const daysLeft = getDaysLeft(asset.contractExpiryDate);
-          const shouldSend = shouldSendToday({ daysLeft, startDays, intervalDays });
+          const expiredToday = daysLeft === -1;
+          const shouldSend = expiredToday || shouldSendToday({ daysLeft, startDays, intervalDays });
           if (shouldSend && !alreadySentToday(asset.reminderContractLastSentAt)) {
             const payload = buildReminderPayload({
               asset,
@@ -171,29 +180,36 @@ export const runReminders = async (_req, res) => {
             const label = payload.assetId
               ? `${payload.assetName} (${payload.assetId})`
               : `${payload.assetName}`;
+            const title = expiredToday ? "Contract expiry expired" : "Contract expiry reminder";
+            const body = expiredToday
+              ? `${label} contract expired.`
+              : `${label} contract expires in ${payload.daysLeft} day(s).`;
+            const type = expiredToday ? "REMINDER_CONTRACT_EXPIRED" : "REMINDER_CONTRACT";
             await notifyUsers({
               users: [...deptUsers, ...supervisors, ...admins],
-              title: "Contract expiry reminder",
-              body: `${label} contract expires in ${payload.daysLeft} day(s).`,
-              type: "REMINDER_CONTRACT",
+              title,
+              body,
+              type,
               data: { ...payload, url: "/reminders" },
               departmentId: asset.departmentId || null,
             });
-            await Promise.all(
-              supervisors.map((s) =>
-                sendEmail({
-                  to: s.email,
-                  subject: `Contract Expiry Reminder: ${payload.assetName} (${payload.assetId})`,
-                  text: `Contract expires in ${payload.daysLeft} day(s).`,
-                  html: reminderEmailTemplate({
-                    name: s.name,
-                    reminder: payload,
-                    appName: process.env.APP_NAME || "Asset Operations",
-                  }),
-                })
-              )
-            );
-            sent += supervisors.length;
+            if (!expiredToday) {
+              await Promise.all(
+                supervisors.map((s) =>
+                  sendEmail({
+                    to: s.email,
+                    subject: `Contract Expiry Reminder: ${payload.assetName} (${payload.assetId})`,
+                    text: `Contract expires in ${payload.daysLeft} day(s).`,
+                    html: reminderEmailTemplate({
+                      name: s.name,
+                      reminder: payload,
+                      appName: process.env.APP_NAME || "Asset Operations",
+                    }),
+                  })
+                )
+              );
+              sent += supervisors.length;
+            }
             await Asset.updateOne(
               { _id: asset._id },
               { $set: { reminderContractLastSentAt: now } }
