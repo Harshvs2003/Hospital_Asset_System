@@ -1,5 +1,6 @@
 import Asset from "../models/assets_model.js";
 import ReminderLog from "../models/ReminderLog.js";
+import User from "../models/users_model.js";
 import { sendReminderEmail } from "../utils/resendMail.js";
 import {
   today,
@@ -79,42 +80,59 @@ const processReminder = async ({ asset, reminderType, referenceDay }) => {
     return { attempted: false };
   }
 
-  const reminderEmail = email;
+  let recipients = [];
+  if (email) recipients = [email];
+  if (!recipients.length) {
+    const supervisorQuery = {
+      role: "SUPERVISOR",
+      isActive: true,
+      emailVerified: true,
+      email: { $exists: true, $ne: null },
+    };
+    const supervisorUsers = await User.find(supervisorQuery).select("email").lean();
+    recipients = supervisorUsers.map((u) => u.email).filter(Boolean);
+  }
+  recipients = Array.from(new Set(recipients));
+
   const logBase = {
     assetId: asset.assetId || String(asset._id),
     reminderType,
     deadlineDate: dueDate,
     daysLeftSent: daysLeft,
     sentAt: new Date(),
-    emailSentTo: reminderEmail || "",
   };
 
-  if (!reminderEmail) {
+  if (!recipients.length) {
     await ReminderLog.create({
       ...logBase,
+      emailSentTo: "",
       status: "failed",
-      errorMessage: "No reminder email configured on asset",
+      errorMessage: "No reminder email on asset and no supervisor recipients found",
     });
     return { attempted: true, sent: false };
   }
 
   try {
-    await sendReminderEmail({
-      to: reminderEmail,
-      subject: getReminderSubject({
-        reminderType,
-        assetName: asset.name || "Asset",
-        daysLeft,
-      }),
-      assetName: asset.name || "",
-      assetId: asset.assetId || String(asset._id),
-      departmentName: asset.departmentName || "",
-      deadlineDate: formatDateForEmail(dueDate),
-      daysLeft,
-      reminderStartDays: startDays,
-      intervalDays,
-      reminderType,
-    });
+    await Promise.all(
+      recipients.map((recipient) =>
+        sendReminderEmail({
+          to: recipient,
+          subject: getReminderSubject({
+            reminderType,
+            assetName: asset.name || "Asset",
+            daysLeft,
+          }),
+          assetName: asset.name || "",
+          assetId: asset.assetId || String(asset._id),
+          departmentName: asset.departmentName || "",
+          deadlineDate: formatDateForEmail(dueDate),
+          daysLeft,
+          reminderStartDays: startDays,
+          intervalDays,
+          reminderType,
+        })
+      )
+    );
 
     const lastSentAt = new Date();
     const postSendNextReminderAt = getPostSendNextReminderAt({
@@ -129,11 +147,18 @@ const processReminder = async ({ asset, reminderType, referenceDay }) => {
     });
 
     await Asset.updateOne({ _id: asset._id }, { $set: update });
-    await ReminderLog.create({ ...logBase, status: "sent" });
+    await ReminderLog.insertMany(
+      recipients.map((recipient) => ({
+        ...logBase,
+        emailSentTo: recipient,
+        status: "sent",
+      }))
+    );
     return { attempted: true, sent: true };
   } catch (error) {
     await ReminderLog.create({
       ...logBase,
+      emailSentTo: recipients.join(","),
       status: "failed",
       errorMessage: error?.message || "Unknown send failure",
     });
