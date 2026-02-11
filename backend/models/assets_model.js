@@ -35,9 +35,63 @@ const AssetSchema = new mongoose.Schema({
         type: Date,
         required: false
     },
+    serviceDueDate: {
+        type: Date,
+        required: false
+    },
     contractExpiryDate: {
         type: Date,
         required: false
+    },
+    serviceReminderStartDays: {
+        type: Number,
+        required: false,
+        default: null
+    },
+    serviceReminderIntervalDays: {
+        type: Number,
+        required: false,
+        default: null
+    },
+    serviceLastReminderSentAt: {
+        type: Date,
+        required: false,
+        default: null
+    },
+    serviceNextReminderAt: {
+        type: Date,
+        required: false,
+        default: null
+    },
+    contractReminderStartDays: {
+        type: Number,
+        required: false,
+        default: null
+    },
+    contractReminderIntervalDays: {
+        type: Number,
+        required: false,
+        default: null
+    },
+    contractLastReminderSentAt: {
+        type: Date,
+        required: false,
+        default: null
+    },
+    contractNextReminderAt: {
+        type: Date,
+        required: false,
+        default: null
+    },
+    reminderEmail: {
+        type: String,
+        required: false,
+        default: null
+    },
+    supervisorEmail: {
+        type: String,
+        required: false,
+        default: null
     },
     reminderService: {
         enabled: { type: Boolean, default: false },

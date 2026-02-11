@@ -1,0 +1,192 @@
+import Asset from "../models/assets_model.js";
+import ReminderLog from "../models/ReminderLog.js";
+import { sendReminderEmail } from "../utils/resendMail.js";
+import {
+  today,
+  daysLeftFrom,
+  isValidReminderInterval,
+  normalizeReminder,
+  getInitialNextReminderAt,
+  shouldSendReminderToday,
+  getPostSendNextReminderAt,
+  formatDateForEmail,
+} from "../utils/reminderUtils.js";
+
+const CRON_HEADER = "x-cron-secret";
+
+const getReminderSubject = ({ reminderType, assetName, daysLeft }) => {
+  if (reminderType === "service") {
+    return `Service Due Reminder: ${assetName} - ${daysLeft} days left`;
+  }
+  return `Contract Expiry Reminder: ${assetName} - ${daysLeft} days left`;
+};
+
+const buildUpdatePayload = (reminderType, values) => {
+  if (reminderType === "service") {
+    return {
+      serviceLastReminderSentAt: values.lastSentAt,
+      serviceNextReminderAt: values.nextReminderAt,
+      // keep legacy field in sync
+      reminderServiceLastSentAt: values.lastSentAt,
+    };
+  }
+  return {
+    contractLastReminderSentAt: values.lastSentAt,
+    contractNextReminderAt: values.nextReminderAt,
+    // keep legacy field in sync
+    reminderContractLastSentAt: values.lastSentAt,
+  };
+};
+
+const processReminder = async ({ asset, reminderType, referenceDay }) => {
+  const normalized = normalizeReminder(asset, reminderType);
+  if (!normalized.enabled || !normalized.dueDate) return { attempted: false };
+
+  const { dueDate, startDays, intervalDays, lastReminderSentAt, email } = normalized;
+  if (!isValidReminderInterval(startDays, intervalDays)) {
+    return { attempted: false, invalid: true };
+  }
+
+  const daysLeft = daysLeftFrom(dueDate, referenceDay);
+  if (daysLeft === null || daysLeft > startDays || daysLeft < -2) {
+    return { attempted: false };
+  }
+
+  const existingNext = normalized.nextReminderAt;
+  const nextReminderAt = existingNext || getInitialNextReminderAt({
+    dueDate,
+    startDays,
+    referenceDay,
+  });
+
+  const shouldSend = shouldSendReminderToday({
+    daysLeft,
+    dueDate,
+    startDays,
+    nextReminderAt,
+    lastReminderSentAt,
+    referenceDay,
+  });
+
+  if (!shouldSend) {
+    if (!existingNext && nextReminderAt) {
+      const update = buildUpdatePayload(reminderType, {
+        lastSentAt: lastReminderSentAt || null,
+        nextReminderAt,
+      });
+      await Asset.updateOne({ _id: asset._id }, { $set: update });
+    }
+    return { attempted: false };
+  }
+
+  const reminderEmail = email;
+  const logBase = {
+    assetId: asset.assetId || String(asset._id),
+    reminderType,
+    deadlineDate: dueDate,
+    daysLeftSent: daysLeft,
+    sentAt: new Date(),
+    emailSentTo: reminderEmail || "",
+  };
+
+  if (!reminderEmail) {
+    await ReminderLog.create({
+      ...logBase,
+      status: "failed",
+      errorMessage: "No reminder email configured on asset",
+    });
+    return { attempted: true, sent: false };
+  }
+
+  try {
+    await sendReminderEmail({
+      to: reminderEmail,
+      subject: getReminderSubject({
+        reminderType,
+        assetName: asset.name || "Asset",
+        daysLeft,
+      }),
+      assetName: asset.name || "",
+      assetId: asset.assetId || String(asset._id),
+      departmentName: asset.departmentName || "",
+      deadlineDate: formatDateForEmail(dueDate),
+      daysLeft,
+      reminderStartDays: startDays,
+      intervalDays,
+      reminderType,
+    });
+
+    const lastSentAt = new Date();
+    const postSendNextReminderAt = getPostSendNextReminderAt({
+      daysLeft,
+      dueDate,
+      intervalDays,
+      referenceDay,
+    });
+    const update = buildUpdatePayload(reminderType, {
+      lastSentAt,
+      nextReminderAt: postSendNextReminderAt,
+    });
+
+    await Asset.updateOne({ _id: asset._id }, { $set: update });
+    await ReminderLog.create({ ...logBase, status: "sent" });
+    return { attempted: true, sent: true };
+  } catch (error) {
+    await ReminderLog.create({
+      ...logBase,
+      status: "failed",
+      errorMessage: error?.message || "Unknown send failure",
+    });
+    return { attempted: true, sent: false };
+  }
+};
+
+export const runCronReminders = async (_req, res) => {
+  try {
+    const referenceDay = today();
+    const assets = await Asset.find({
+      $or: [
+        { serviceDueDate: { $ne: null } },
+        { contractExpiryDate: { $ne: null } },
+        { lastServiceDate: { $ne: null } },
+      ],
+    }).lean();
+
+    let attempted = 0;
+    let sent = 0;
+    let invalidConfigs = 0;
+
+    for (const asset of assets) {
+      for (const reminderType of ["service", "contract"]) {
+        const result = await processReminder({ asset, reminderType, referenceDay });
+        if (result.invalid) invalidConfigs += 1;
+        if (result.attempted) attempted += 1;
+        if (result.sent) sent += 1;
+      }
+    }
+
+    return res.json({
+      success: true,
+      totalAssets: assets.length,
+      remindersAttempted: attempted,
+      remindersSent: sent,
+      invalidConfigs,
+      date: referenceDay.format("YYYY-MM-DD"),
+    });
+  } catch (error) {
+    console.error("Run cron reminders error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to run cron reminders",
+    });
+  }
+};
+
+export const verifyCronSecret = (req, res, next) => {
+  const headerValue = req.headers[CRON_HEADER];
+  const expected = process.env.CRON_SECRET;
+  if (!expected || headerValue !== expected) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+  return next();
+};
