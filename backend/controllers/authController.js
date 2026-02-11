@@ -53,6 +53,7 @@ export const register = async (req, res) => {
     const { name, email, password, role, departmentId } = req.body;
     if (!name || !email || !password)
       return res.status(400).json({ message: "Missing fields" });
+    const normalizedEmail = String(email).trim().toLowerCase();
 
     const normalizedRole =
       typeof role === "string" ? role.toUpperCase() : "DEPARTMENT_USER";
@@ -63,19 +64,37 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: "Invalid departmentId" });
     }
 
-    const existing = await User.findOne({ email });
-    if (existing)
-      return res.status(400).json({ message: "Email already registered" });
-
     const hashed = await bcrypt.hash(password, 10);
-    const user = await User.create({
-      name,
+    const existing = await User.findOne({ email: normalizedEmail });
+    let user = existing;
+    let statusCode = 201;
+    let message = "Registration successful. Please verify your email.";
+
+    if (existing?.emailVerified) {
+      return res.status(400).json({ message: "Email already registered" });
+    }
+
+    if (existing && !existing.emailVerified) {
+      existing.name = name;
+      existing.email = normalizedEmail;
+      existing.password = hashed;
+      existing.role = normalizedRole;
+      existing.departmentId = departmentId || null;
+      existing.emailVerified = false;
+      user = existing;
+      statusCode = 200;
+      message =
+        "Account exists but email is not verified. A new OTP has been sent.";
+    } else {
+      user = await User.create({
+        name,
       email,
-      password: hashed,
-      role: normalizedRole,
-      departmentId: departmentId || null,
-      emailVerified: false,
-    });
+        password: hashed,
+        role: normalizedRole,
+        departmentId: departmentId || null,
+        emailVerified: false,
+      });
+    }
 
     const otp = generateOtp();
     const record = buildOtpRecord(otp, user._id, "verify_email");
@@ -98,8 +117,8 @@ export const register = async (req, res) => {
       }),
     });
 
-    res.status(201).json({
-      message: "Registration successful. Please verify your email.",
+    res.status(statusCode).json({
+      message,
       requiresVerification: true,
       email: user.email,
     });
