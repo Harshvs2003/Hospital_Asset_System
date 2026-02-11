@@ -49,13 +49,19 @@ const extraOrigins = FRONTEND
   ? FRONTEND.split(",").map((o) => o.trim()).filter(Boolean)
   : [];
 const allowedOrigins = [...extraOrigins, ...DEFAULT_ORIGINS];
+const allowedOriginRegexes = [
+  // Vercel preview deployments for this project/team
+  /^https:\/\/hospital-asset-system-[a-z0-9-]+-harshvardhan-sinhas-projects\.vercel\.app$/i,
+];
 
 app.use(
   cors({
     origin: function (origin, callback) {
       // allow requests with no origin (curl, mobile apps, Postman)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+      const isAllowedByList = allowedOrigins.includes(origin);
+      const isAllowedByPattern = allowedOriginRegexes.some((pattern) => pattern.test(origin));
+      if (isAllowedByList || isAllowedByPattern) return callback(null, true);
       console.warn(`Blocked CORS origin: ${origin}`);
       return callback(new Error("CORS policy: origin not allowed"), false);
     },
