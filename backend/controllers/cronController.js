@@ -113,7 +113,7 @@ const processReminder = async ({ asset, reminderType, referenceDay }) => {
   }
 
   try {
-    await Promise.all(
+    const sendResults = await Promise.allSettled(
       recipients.map((recipient) =>
         sendReminderEmail({
           to: recipient,
@@ -134,27 +134,67 @@ const processReminder = async ({ asset, reminderType, referenceDay }) => {
       )
     );
 
-    const lastSentAt = new Date();
-    const postSendNextReminderAt = getPostSendNextReminderAt({
-      daysLeft,
-      dueDate,
-      intervalDays,
-      referenceDay,
-    });
-    const update = buildUpdatePayload(reminderType, {
-      lastSentAt,
-      nextReminderAt: postSendNextReminderAt,
+    const sentRecipients = [];
+    const failedRecipients = [];
+    sendResults.forEach((result, index) => {
+      const recipient = recipients[index];
+      if (result.status === "fulfilled") {
+        sentRecipients.push(recipient);
+      } else {
+        failedRecipients.push({
+          recipient,
+          error: result.reason?.message || "Unknown send failure",
+        });
+      }
     });
 
-    await Asset.updateOne({ _id: asset._id }, { $set: update });
-    await ReminderLog.insertMany(
-      recipients.map((recipient) => ({
-        ...logBase,
-        emailSentTo: recipient,
-        status: "sent",
-      }))
-    );
-    return { attempted: true, sent: true };
+    if (sentRecipients.length) {
+      const lastSentAt = new Date();
+      const postSendNextReminderAt = getPostSendNextReminderAt({
+        daysLeft,
+        dueDate,
+        intervalDays,
+        referenceDay,
+      });
+      const update = buildUpdatePayload(reminderType, {
+        lastSentAt,
+        nextReminderAt: postSendNextReminderAt,
+      });
+      await Asset.updateOne({ _id: asset._id }, { $set: update });
+    }
+
+    if (sentRecipients.length) {
+      await ReminderLog.insertMany(
+        sentRecipients.map((recipient) => ({
+          ...logBase,
+          emailSentTo: recipient,
+          status: "sent",
+        }))
+      );
+    }
+
+    if (failedRecipients.length) {
+      await ReminderLog.insertMany(
+        failedRecipients.map((item) => ({
+          ...logBase,
+          emailSentTo: item.recipient,
+          status: "failed",
+          errorMessage: item.error,
+        }))
+      );
+    }
+
+    if (sentRecipients.length) {
+      return { attempted: true, sent: true };
+    }
+
+    await ReminderLog.create({
+      ...logBase,
+      emailSentTo: recipients.join(","),
+      status: "failed",
+      errorMessage: "All reminder sends failed",
+    });
+    return { attempted: true, sent: false };
   } catch (error) {
     await ReminderLog.create({
       ...logBase,
