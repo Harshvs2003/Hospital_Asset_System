@@ -17,6 +17,6 @@ jobs:
             echo "Missing CRON_SERVICE_SECRET secret"
             exit 1
           fi
-          curl -sS -X POST "https://api.assetops.in/api/cron/reminders" \
+          curl -f -sS -X POST "https://api.assetops.in/api/cron/reminders" \
             -H "x-cron-secret: $CRON_SERVICE_SECRET" \
             -H "content-type: application/json"

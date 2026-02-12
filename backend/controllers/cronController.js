@@ -209,7 +209,7 @@ export const runCronReminders = async (_req, res) => {
 
 export const verifyCronSecret = (req, res, next) => {
   const headerValue = req.headers[CRON_HEADER];
-  const expected = process.env.CRON_SECRET;
+  const expected = process.env.CRON_SECRET || process.env.CRON_SERVICE_SECRET;
   if (!expected || headerValue !== expected) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
