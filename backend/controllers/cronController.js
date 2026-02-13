@@ -208,36 +208,8 @@ const processReminder = async ({ asset, reminderType, referenceDay }) => {
 
 export const runCronReminders = async (_req, res) => {
   try {
-    const referenceDay = today();
-    const assets = await Asset.find({
-      $or: [
-        { serviceDueDate: { $ne: null } },
-        { contractExpiryDate: { $ne: null } },
-        { lastServiceDate: { $ne: null } },
-      ],
-    }).lean();
-
-    let attempted = 0;
-    let sent = 0;
-    let invalidConfigs = 0;
-
-    for (const asset of assets) {
-      for (const reminderType of ["service", "contract"]) {
-        const result = await processReminder({ asset, reminderType, referenceDay });
-        if (result.invalid) invalidConfigs += 1;
-        if (result.attempted) attempted += 1;
-        if (result.sent) sent += 1;
-      }
-    }
-
-    return res.json({
-      success: true,
-      totalAssets: assets.length,
-      remindersAttempted: attempted,
-      remindersSent: sent,
-      invalidConfigs,
-      date: referenceDay.format("YYYY-MM-DD"),
-    });
+    const result = await runCronRemindersJob();
+    return res.json(result);
   } catch (error) {
     console.error("Run cron reminders error:", error);
     return res.status(500).json({
@@ -245,6 +217,39 @@ export const runCronReminders = async (_req, res) => {
       message: "Failed to run cron reminders",
     });
   }
+};
+
+export const runCronRemindersJob = async () => {
+  const referenceDay = today();
+  const assets = await Asset.find({
+    $or: [
+      { serviceDueDate: { $ne: null } },
+      { contractExpiryDate: { $ne: null } },
+      { lastServiceDate: { $ne: null } },
+    ],
+  }).lean();
+
+  let attempted = 0;
+  let sent = 0;
+  let invalidConfigs = 0;
+
+  for (const asset of assets) {
+    for (const reminderType of ["service", "contract"]) {
+      const result = await processReminder({ asset, reminderType, referenceDay });
+      if (result.invalid) invalidConfigs += 1;
+      if (result.attempted) attempted += 1;
+      if (result.sent) sent += 1;
+    }
+  }
+
+  return {
+    success: true,
+    totalAssets: assets.length,
+    remindersAttempted: attempted,
+    remindersSent: sent,
+    invalidConfigs,
+    date: referenceDay.format("YYYY-MM-DD"),
+  };
 };
 
 export const verifyCronSecret = (req, res, next) => {

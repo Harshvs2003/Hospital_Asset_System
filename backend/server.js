@@ -12,6 +12,7 @@ import userRoutes from "./routes/userRoutes.js";
 import reminderRoutes from "./routes/reminderRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import cronRoutes from "./routes/cronRoutes.js";
+import { startReminderCronScheduler } from "./utils/reminderCronScheduler.js";
 
 import cors from "cors";
 import helmet from "helmet";
@@ -106,9 +107,12 @@ const server = app.listen(port, () => {
   console.log(`🚀 Server running on port ${port} - NODE_ENV=${process.env.NODE_ENV}`);
 });
 
+const stopReminderCronScheduler = startReminderCronScheduler();
+
 // graceful shutdown (nice-to-have on platforms)
 const shutdown = async () => {
   console.log("Shutting down gracefully...");
+  stopReminderCronScheduler();
   server.close(() => {
     console.log("HTTP server closed.");
     // if your connectDB exported a close method, call it here
