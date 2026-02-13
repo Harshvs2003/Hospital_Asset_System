@@ -1,6 +1,5 @@
-// src/pages/ReportPage.tsx
 import React from "react";
-import { get } from "../lib/api"; // centralized API helper
+import { get } from "../lib/api";
 import { Download, Printer, RotateCw } from "lucide-react";
 
 type Asset = {
@@ -11,10 +10,57 @@ type Asset = {
   subcategory?: string;
   location?: string;
   departmentName?: string;
-  status?: string; // e.g. "Available", "Under Maintenance", "Damaged", etc
+  status?: string;
   purchaseDate?: string | null;
   createdAt?: string | null;
   price?: number;
+};
+
+type Summary = {
+  total: number;
+  available: number;
+  maintenance: number;
+  damaged: number;
+  totalValue: number;
+};
+
+type BreakdownCategory = {
+  category: string;
+  total: number;
+  available: number;
+  maintenance: number;
+  damaged: number;
+};
+
+type BreakdownLocation = {
+  location: string;
+  total: number;
+  available: number;
+  maintenance: number;
+  damaged: number;
+};
+
+type PaginatedAssetsResponse = {
+  items: Asset[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  summary: Summary;
+  byCategory: BreakdownCategory[];
+  byLocation: BreakdownLocation[];
+  categories: string[];
+  cached?: boolean;
+};
+
+const EMPTY_SUMMARY: Summary = {
+  total: 0,
+  available: 0,
+  maintenance: 0,
+  damaged: 0,
+  totalValue: 0,
 };
 
 const fmtDate = (d?: string | null) => {
@@ -28,89 +74,68 @@ const fmtDate = (d?: string | null) => {
 
 const ReportPage: React.FC = () => {
   const [assets, setAssets] = React.useState<Asset[]>([]);
+  const [summary, setSummary] = React.useState<Summary>(EMPTY_SUMMARY);
+  const [byCategory, setByCategory] = React.useState<BreakdownCategory[]>([]);
+  const [byLocation, setByLocation] = React.useState<BreakdownLocation[]>([]);
+  const [categories, setCategories] = React.useState<string[]>([]);
+  const [pagination, setPagination] = React.useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+  });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [lastLoadedAt, setLastLoadedAt] = React.useState<string | null>(null);
 
-  // filters
   const [categoryFilter, setCategoryFilter] = React.useState<string>("All");
   const [fromDate, setFromDate] = React.useState<string>("");
   const [toDate, setToDate] = React.useState<string>("");
 
-  // load assets
-  const loadAssets = React.useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await get("/assets"); // expects list
-      setAssets(Array.isArray(data) ? data : []);
-      setLastLoadedAt(new Date().toISOString());
-    } catch (err) {
-      console.error("Failed to load assets for reports:", err);
-      setError("Failed to load assets. Try again.");
-      setAssets([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const buildQuery = React.useCallback(
+    (page: number, limit: number) => {
+      const params = new URLSearchParams();
+      params.set("paginated", "true");
+      params.set("page", String(page));
+      params.set("limit", String(limit));
+      if (categoryFilter !== "All") params.set("category", categoryFilter);
+      if (fromDate) params.set("fromDate", fromDate);
+      if (toDate) params.set("toDate", toDate);
+      return params.toString();
+    },
+    [categoryFilter, fromDate, toDate]
+  );
+
+  const loadAssets = React.useCallback(
+    async (page = pagination.page, limit = pagination.limit) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = (await get(`/assets?${buildQuery(page, limit)}`)) as PaginatedAssetsResponse;
+        setAssets(Array.isArray(data?.items) ? data.items : []);
+        setSummary(data?.summary || EMPTY_SUMMARY);
+        setByCategory(Array.isArray(data?.byCategory) ? data.byCategory : []);
+        setByLocation(Array.isArray(data?.byLocation) ? data.byLocation : []);
+        setCategories(Array.isArray(data?.categories) ? data.categories : []);
+        setPagination(data?.pagination || { page: 1, limit, total: 0, totalPages: 1 });
+        setLastLoadedAt(new Date().toISOString());
+      } catch (err) {
+        console.error("Failed to load assets for reports:", err);
+        setError("Failed to load assets. Try again.");
+        setAssets([]);
+        setSummary(EMPTY_SUMMARY);
+        setByCategory([]);
+        setByLocation([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [buildQuery, pagination.page, pagination.limit]
+  );
 
   React.useEffect(() => {
-    loadAssets();
-  }, [loadAssets]);
-
-  // derived lists
-  const categories = React.useMemo(
-    () =>
-      Array.from(
-        new Set(assets.map((a) => (a.category || "").trim()).filter(Boolean))
-      ).sort(),
-    [assets]
-  );
-  // const locations = React.useMemo(
-  //   () =>
-  //     Array.from(
-  //       new Set(assets.map((a) => (a.location || "").trim()).filter(Boolean))
-  //     ).sort(),
-  //   [assets]
-  // );
-
-  // filtered assets by UI filters
-  const filteredAssets = React.useMemo(() => {
-    const from = fromDate ? new Date(fromDate) : null;
-    const to = toDate ? new Date(toDate) : null;
-
-    return assets.filter((a) => {
-      const created = a.createdAt ? new Date(a.createdAt) : null;
-      if (categoryFilter !== "All" && (a.category || "") !== categoryFilter)
-        return false;
-      if (from && created && created < from) return false;
-      // include full "to" day
-      if (to && created && created > new Date(to.getTime() + 86400000))
-        return false;
-      if ((from || to) && !created) return false;
-      return true;
-    }); 
-  }, [assets, categoryFilter, fromDate, toDate]);
-
-  // summary stats
-  const summary = React.useMemo(() => {
-    const total = filteredAssets.length;
-    const available = filteredAssets.filter((a) =>
-      (a.status || "").toLowerCase().includes("available")
-    ).length;
-    const maintenance = filteredAssets.filter(
-      (a) =>
-        (a.status || "").toLowerCase().includes("maintenance") ||
-        (a.status || "").toLowerCase().includes("under maintenance")
-    ).length;
-    const damaged = filteredAssets.filter(
-      (a) =>
-        (a.status || "").toLowerCase().includes("damaged") ||
-        (a.status || "").toLowerCase().includes("out of order")
-    ).length;
-    const totalValue = filteredAssets.reduce((s, a) => s + (a.price || 0), 0);
-    return { total, available, maintenance, damaged, totalValue };
-  }, [filteredAssets]);
+    loadAssets(1, pagination.limit);
+  }, [categoryFilter, fromDate, toDate]);
 
   const rangeLabel = React.useMemo(() => {
     if (!fromDate && !toDate) return "All time";
@@ -119,103 +144,70 @@ const ReportPage: React.FC = () => {
     return `${fmtDate(fromDate)} to ${fmtDate(toDate)}`;
   }, [fromDate, toDate]);
 
-  // group by category
-  const byCategory = React.useMemo(() => {
-    const map = new Map<
-      string,
-      { total: number; available: number; maintenance: number; damaged: number }
-    >();
-    for (const a of filteredAssets) {
-      const key = a.category || "Uncategorized";
-      const entry = map.get(key) || {
-        total: 0,
-        available: 0,
-        maintenance: 0,
-        damaged: 0,
-      };
-      entry.total += 1;
-      const s = (a.status || "").toLowerCase();
-      if (s.includes("available")) entry.available++;
-      if (s.includes("maintenance") || s.includes("under maintenance"))
-        entry.maintenance++;
-      if (s.includes("damaged") || s.includes("out of order")) entry.damaged++;
-      map.set(key, entry);
+  const fetchAllForExport = React.useCallback(async () => {
+    const combined: Asset[] = [];
+    let currentPage = 1;
+    const limit = 200;
+    let totalPages = 1;
+
+    while (currentPage <= totalPages) {
+      const data = (await get(`/assets?${buildQuery(currentPage, limit)}`)) as PaginatedAssetsResponse;
+      const pageItems = Array.isArray(data?.items) ? data.items : [];
+      combined.push(...pageItems);
+      totalPages = data?.pagination?.totalPages || 1;
+      currentPage += 1;
     }
-    return Array.from(map.entries())
-      .map(([category, stats]) => ({ category, ...stats }))
-      .sort((a, b) => b.total - a.total);
-  }, [filteredAssets]);
 
-  // group by location
-  const byLocation = React.useMemo(() => {
-    const map = new Map<
-      string,
-      { total: number; available: number; maintenance: number; damaged: number }
-    >();
-    for (const a of filteredAssets) {
-      const key = a.location || a.departmentName || "Unknown";
-      const entry = map.get(key) || {
-        total: 0,
-        available: 0,
-        maintenance: 0,
-        damaged: 0,
-      };
-      entry.total += 1;
-      const s = (a.status || "").toLowerCase();
-      if (s.includes("available")) entry.available++;
-      if (s.includes("maintenance") || s.includes("under maintenance"))
-        entry.maintenance++;
-      if (s.includes("damaged") || s.includes("out of order")) entry.damaged++;
-      map.set(key, entry);
+    return combined;
+  }, [buildQuery]);
+
+  const exportCSV = React.useCallback(async () => {
+    try {
+      const allAssets = await fetchAllForExport();
+      const rows = [
+        [
+          "Asset ID",
+          "Name",
+          "Category",
+          "Subcategory",
+          "Location",
+          "Status",
+          "Department",
+          "Created At",
+          "Purchase Date",
+          "Price",
+        ],
+        ...allAssets.map((a) => [
+          a.assetId || a._id || "",
+          a.name || "",
+          a.category || "",
+          a.subcategory || "",
+          a.location || "",
+          a.status || "",
+          a.departmentName || "",
+          a.createdAt ? new Date(a.createdAt).toISOString() : "",
+          a.purchaseDate || "",
+          a.price !== undefined ? String(a.price) : "",
+        ]),
+      ];
+      const csv = rows
+        .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `assets-report-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("CSV export failed:", err);
+      alert("Failed to export CSV");
     }
-    return Array.from(map.entries())
-      .map(([location, stats]) => ({ location, ...stats }))
-      .sort((a, b) => b.total - a.total);
-  }, [filteredAssets]);
+  }, [fetchAllForExport]);
 
-  // CSV export
-  const exportCSV = React.useCallback(() => {
-    const rows = [
-      [
-        "Asset ID",
-        "Name",
-        "Category",
-        "Subcategory",
-        "Location",
-        "Status",
-        "Department",
-        "Created At",
-        "Purchase Date",
-        "Price",
-      ],
-      ...filteredAssets.map((a) => [
-        a.assetId || a._id || "",
-        a.name || "",
-        a.category || "",
-        a.subcategory || "",
-        a.location || "",
-        a.status || "",
-        a.departmentName || "",
-        a.createdAt ? new Date(a.createdAt).toISOString() : "",
-        a.purchaseDate || "",
-        a.price !== undefined ? String(a.price) : "",
-      ]),
-    ];
-    const csv = rows
-      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `assets-report-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }, [filteredAssets]);
-
-  // Print / Export to printable HTML (user can Save as PDF)
   const exportPrintable = React.useCallback(() => {
     const html = `
       <html>
@@ -236,18 +228,10 @@ const ReportPage: React.FC = () => {
         <h1>Assets Report</h1>
         <div class="meta">Generated: ${new Date().toLocaleString()}</div>
         <div class="summary">
-          <div class="card"><strong>Total</strong><div>${
-            summary.total
-          }</div></div>
-          <div class="card"><strong>Available</strong><div>${
-            summary.available
-          }</div></div>
-          <div class="card"><strong>Maintenance</strong><div>${
-            summary.maintenance
-          }</div></div>
-          <div class="card"><strong>Damaged</strong><div>${
-            summary.damaged
-          }</div></div>
+          <div class="card"><strong>Total</strong><div>${summary.total}</div></div>
+          <div class="card"><strong>Available</strong><div>${summary.available}</div></div>
+          <div class="card"><strong>Maintenance</strong><div>${summary.maintenance}</div></div>
+          <div class="card"><strong>Damaged</strong><div>${summary.damaged}</div></div>
           <div class="card"><strong>Total Value</strong><div>${summary.totalValue.toLocaleString()}</div></div>
         </div>
 
@@ -258,11 +242,7 @@ const ReportPage: React.FC = () => {
             ${byCategory
               .map(
                 (c) =>
-                  `<tr><td>${escapeHtml(c.category)}</td><td>${
-                    c.total
-                  }</td><td>${c.available}</td><td>${c.maintenance}</td><td>${
-                    c.damaged
-                  }</td></tr>`
+                  `<tr><td>${escapeHtml(c.category)}</td><td>${c.total}</td><td>${c.available}</td><td>${c.maintenance}</td><td>${c.damaged}</td></tr>`
               )
               .join("")}
           </tbody>
@@ -275,11 +255,7 @@ const ReportPage: React.FC = () => {
             ${byLocation
               .map(
                 (l) =>
-                  `<tr><td>${escapeHtml(l.location)}</td><td>${
-                    l.total
-                  }</td><td>${l.available}</td><td>${l.maintenance}</td><td>${
-                    l.damaged
-                  }</td></tr>`
+                  `<tr><td>${escapeHtml(l.location)}</td><td>${l.total}</td><td>${l.available}</td><td>${l.maintenance}</td><td>${l.damaged}</td></tr>`
               )
               .join("")}
           </tbody>
@@ -301,15 +277,14 @@ const ReportPage: React.FC = () => {
     w.document.close();
   }, [summary, byCategory, byLocation]);
 
-  // small helpers
-  function escapeHtml(str?: string) {
+  const escapeHtml = (str?: string) => {
     if (!str) return "";
     return String(str)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
-  }
+  };
 
   return (
     <div className="page space-y-6">
@@ -317,12 +292,9 @@ const ReportPage: React.FC = () => {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">Reports & Analytics</h1>
-            <p className="text-gray-600 mt-1">
-              Structured inventory reporting with export-ready data.
-            </p>
+            <p className="text-gray-600 mt-1">Structured inventory reporting with export-ready data.</p>
             <div className="text-xs text-gray-500 mt-2">
-              Scope: <strong>{rangeLabel}</strong> · Category:{" "}
-              <strong>{categoryFilter}</strong>
+              Scope: <strong>{rangeLabel}</strong> · Category: <strong>{categoryFilter}</strong>
               {lastLoadedAt && (
                 <>
                   {" "}
@@ -334,15 +306,12 @@ const ReportPage: React.FC = () => {
 
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={loadAssets}
+              onClick={() => loadAssets(pagination.page, pagination.limit)}
               className="px-3 py-2 bg-white border rounded flex items-center gap-2"
             >
               <RotateCw className="w-4 h-4" /> Refresh
             </button>
-            <button
-              onClick={exportCSV}
-              className="px-3 py-2 bg-white border rounded flex items-center gap-2"
-            >
+            <button onClick={exportCSV} className="px-3 py-2 bg-white border rounded flex items-center gap-2">
               <Download className="w-4 h-4" /> Download CSV
             </button>
             <button
@@ -357,27 +326,19 @@ const ReportPage: React.FC = () => {
         <div className="mt-5 grid grid-cols-1 md:grid-cols-4 gap-3">
           <div className="border rounded-lg p-4">
             <div className="text-xs text-gray-500">Total Assets</div>
-            <div className="text-2xl font-bold text-blue-600">
-              {summary.total}
-            </div>
+            <div className="text-2xl font-bold text-blue-600">{summary.total}</div>
           </div>
           <div className="border rounded-lg p-4">
             <div className="text-xs text-gray-500">Available</div>
-            <div className="text-2xl font-bold text-green-600">
-              {summary.available}
-            </div>
+            <div className="text-2xl font-bold text-green-600">{summary.available}</div>
           </div>
           <div className="border rounded-lg p-4">
             <div className="text-xs text-gray-500">Under Maintenance</div>
-            <div className="text-2xl font-bold text-yellow-600">
-              {summary.maintenance}
-            </div>
+            <div className="text-2xl font-bold text-yellow-600">{summary.maintenance}</div>
           </div>
           <div className="border rounded-lg p-4">
             <div className="text-xs text-gray-500">Damaged</div>
-            <div className="text-2xl font-bold text-red-600">
-              {summary.damaged}
-            </div>
+            <div className="text-2xl font-bold text-red-600">{summary.damaged}</div>
           </div>
         </div>
 
@@ -400,22 +361,12 @@ const ReportPage: React.FC = () => {
 
           <div className="flex items-center gap-2 mt-3 md:mt-0">
             <label className="text-sm text-gray-600">From</label>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="px-3 py-2 border rounded"
-            />
+            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="px-3 py-2 border rounded" />
           </div>
 
           <div className="flex items-center gap-2 mt-3 md:mt-0">
             <label className="text-sm text-gray-600">To</label>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="px-3 py-2 border rounded"
-            />
+            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="px-3 py-2 border rounded" />
           </div>
 
           <div className="ml-auto mt-3 md:mt-0 text-sm text-gray-600">
@@ -423,29 +374,22 @@ const ReportPage: React.FC = () => {
               Total assets: <strong>{summary.total}</strong>
             </div>
             <div>
-              Total value:{" "}
-              <strong>{summary.totalValue.toLocaleString()}</strong>
+              Total value: <strong>{summary.totalValue.toLocaleString()}</strong>
             </div>
           </div>
         </div>
       </div>
 
       {loading ? (
-        <div className="bg-white rounded-lg shadow panel-pad text-sm text-gray-500">
-          Loading assets...
-        </div>
+        <div className="bg-white rounded-lg shadow panel-pad text-sm text-gray-500">Loading assets...</div>
       ) : error ? (
-        <div className="bg-white rounded-lg shadow panel-pad text-sm text-red-600">
-          {error}
-        </div>
+        <div className="bg-white rounded-lg shadow panel-pad text-sm text-red-600">{error}</div>
       ) : (
         <>
           <div className="bg-white rounded-lg shadow panel-pad mb-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Breakdown by Category</h3>
-              <div className="text-xs text-gray-500">
-                {byCategory.length} categories
-              </div>
+              <div className="text-xs text-gray-500">{byCategory.length} categories</div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-gray-600">
@@ -476,9 +420,7 @@ const ReportPage: React.FC = () => {
           <div className="bg-white rounded-lg shadow panel-pad mb-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Breakdown by Location</h3>
-              <div className="text-xs text-gray-500">
-                {byLocation.length} locations
-              </div>
+              <div className="text-xs text-gray-500">{byLocation.length} locations</div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-gray-600">
@@ -508,9 +450,9 @@ const ReportPage: React.FC = () => {
 
           <div className="bg-white rounded-lg shadow panel-pad">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold">Assets Detail (Preview)</h3>
+              <h3 className="text-lg font-semibold">Assets Detail</h3>
               <div className="text-xs text-gray-500">
-                Export full dataset using CSV or PDF
+                Showing page {pagination.page} of {pagination.totalPages} · {pagination.total} total rows
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -527,7 +469,7 @@ const ReportPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAssets.slice(0, 200).map((a) => (
+                  {assets.map((a) => (
                     <tr key={a._id || a.assetId} className="border-b">
                       <td className="py-2 font-mono">{a.assetId || a._id}</td>
                       <td>{a.name}</td>
@@ -535,19 +477,27 @@ const ReportPage: React.FC = () => {
                       <td>{a.location || a.departmentName}</td>
                       <td>{a.status || "-"}</td>
                       <td>{fmtDate(a.createdAt)}</td>
-                      <td>
-                        {a.price !== undefined ? a.price.toLocaleString() : "-"}
-                      </td>
+                      <td>{a.price !== undefined ? a.price.toLocaleString() : "-"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-
-              {filteredAssets.length > 200 && (
-                <div className="text-xs text-gray-500 mt-2">
-                  Previewing first 200 rows. Export CSV for full dataset.
-                </div>
-              )}
+            </div>
+            <div className="mt-3 flex items-center justify-end gap-2">
+              <button
+                onClick={() => loadAssets(Math.max(1, pagination.page - 1), pagination.limit)}
+                disabled={pagination.page <= 1}
+                className="px-3 py-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => loadAssets(Math.min(pagination.totalPages, pagination.page + 1), pagination.limit)}
+                disabled={pagination.page >= pagination.totalPages}
+                className="px-3 py-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
             </div>
           </div>
         </>
@@ -557,3 +507,4 @@ const ReportPage: React.FC = () => {
 };
 
 export default ReportPage;
+

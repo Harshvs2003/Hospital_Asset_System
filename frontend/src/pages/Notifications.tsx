@@ -11,6 +11,15 @@ type NotificationItem = {
   isRead?: boolean;
   createdAt?: string;
 };
+type NotificationsResponse = {
+  items: NotificationItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
 
 const urlBase64ToUint8Array = (base64String: string) => {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -25,26 +34,44 @@ const urlBase64ToUint8Array = (base64String: string) => {
 
 const NotificationsPage: React.FC = () => {
   const [items, setItems] = React.useState<NotificationItem[]>([]);
+  const [pagination, setPagination] = React.useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+  });
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [permission, setPermission] = React.useState(Notification.permission);
+  const pageRef = React.useRef(1);
 
-  const fetchList = React.useCallback(async () => {
+  const fetchList = React.useCallback(async (targetPage = pageRef.current) => {
     try {
-      const res = await get("/notifications");
-      const list = Array.isArray(res?.data) ? res.data : res || [];
-      setItems(list);
+      const res = await get("/notifications", {
+        params: {
+          paginated: "true",
+          page: targetPage,
+          limit: pagination.limit,
+        },
+      });
+      const payload = res?.data as NotificationsResponse;
+      setItems(Array.isArray(payload?.items) ? payload.items : []);
+      if (payload?.pagination) setPagination(payload.pagination);
       setError(null);
     } catch (err: any) {
       setError(err?.message || "Failed to load notifications");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pagination.limit]);
 
   React.useEffect(() => {
-    fetchList();
-    const id = setInterval(fetchList, 15000);
+    pageRef.current = pagination.page;
+  }, [pagination.page]);
+
+  React.useEffect(() => {
+    fetchList(1);
+    const id = setInterval(() => fetchList(pageRef.current), 15000);
     return () => {
       clearInterval(id);
       post("/notifications/mark-read")
@@ -155,6 +182,29 @@ const NotificationsPage: React.FC = () => {
           })
         )}
       </div>
+      {!loading && !error && pagination.total > 0 && (
+        <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3">
+          <div className="text-sm text-gray-600">
+            Page {pagination.page} of {pagination.totalPages} · {pagination.total} notifications
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => fetchList(Math.max(1, pagination.page - 1))}
+              disabled={pagination.page <= 1}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => fetchList(Math.min(pagination.totalPages, pagination.page + 1))}
+              disabled={pagination.page >= pagination.totalPages}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

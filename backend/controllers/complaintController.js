@@ -132,8 +132,14 @@ export const createComplaint = async (req, res) => {
 // GET /api/complaints?status=OPEN&assetId=...&departmentId=...
 export const getComplaints = async (req, res) => {
   try {
-    const { status, assetId, departmentId } = req.query;
+    const { status, assetId, departmentId, type, assetQuery } = req.query;
     const filter = {};
+    const hasPagination =
+      req.query.paginated === "true" ||
+      req.query.page !== undefined ||
+      req.query.limit !== undefined;
+    const page = Math.max(1, Number.parseInt(String(req.query.page || "1"), 10) || 1);
+    const limit = Math.min(200, Math.max(1, Number.parseInt(String(req.query.limit || "20"), 10) || 20));
 
     if (status) {
       const allowedStatuses = ["OPEN", "SUPERVISOR_RESOLVED", "CLOSED"];
@@ -143,6 +149,10 @@ export const getComplaints = async (req, res) => {
       filter.status = status;
     }
     if (assetId) filter.assetId = assetId;
+    if (type) filter.type = type;
+    if (assetQuery) {
+      filter.assetId = { $regex: String(assetQuery), $options: "i" };
+    }
 
     if (departmentId) {
       if (!isAdminOrSupervisor(req)) {
@@ -155,8 +165,36 @@ export const getComplaints = async (req, res) => {
       filter.departmentId = req.user.departmentId;
     }
 
-    const list = await Complaint.find(filter).sort({ createdAt: -1 });
-    return ok(res, "Complaints fetched", list);
+    if (!hasPagination) {
+      const list = await Complaint.find(filter).sort({ createdAt: -1 });
+      return ok(res, "Complaints fetched", list);
+    }
+
+    const total = await Complaint.countDocuments(filter);
+    const skip = (page - 1) * limit;
+    const [items, statusSummary] = await Promise.all([
+      Complaint.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Complaint.aggregate([
+        { $match: filter },
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const summary = { OPEN: 0, SUPERVISOR_RESOLVED: 0, CLOSED: 0 };
+    statusSummary.forEach((row) => {
+      if (summary[row._id] !== undefined) summary[row._id] = row.count;
+    });
+
+    return ok(res, "Complaints fetched", {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+      summary,
+    });
   } catch (err) {
     console.error("Error fetching complaints", err);
     return fail(res, err.message, 500);

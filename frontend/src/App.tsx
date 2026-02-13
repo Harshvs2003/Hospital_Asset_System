@@ -79,7 +79,7 @@ function App() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex h-screen overflow-hidden bg-gray-100">
       {showInstallBanner && installPromptEvent && (
         <div className="fixed bottom-4 left-4 right-4 z-50 md:hidden">
           <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-white px-4 py-3 shadow-lg">
@@ -112,7 +112,7 @@ function App() {
         </div>
       )}
       <Sidebar mobileOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-white px-4 py-3 md:hidden">
           <button
             onClick={() => setMobileNavOpen(true)}
@@ -124,7 +124,7 @@ function App() {
           <div className="text-sm font-semibold text-gray-900">HealthAsset</div>
           <div className="h-9 w-9" />
         </header>
-        <div className="flex-1 overflow-auto">
+        <div className="min-h-0 flex-1 overflow-auto">
         <Routes>
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />

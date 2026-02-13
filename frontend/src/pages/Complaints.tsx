@@ -23,6 +23,20 @@ type Complaint = {
 };
 
 type ActionType = "resolve" | "close" | "reopen";
+type ComplaintsResponse = {
+  items: Complaint[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  summary: {
+    OPEN: number;
+    SUPERVISOR_RESOLVED: number;
+    CLOSED: number;
+  };
+};
 
 const statusStyles: Record<Complaint["status"], string> = {
   OPEN: "bg-amber-100 text-amber-800",
@@ -38,6 +52,17 @@ const ComplaintsPage: React.FC = () => {
   const isViewer = role === "VIEWER";
 
   const [complaints, setComplaints] = React.useState<Complaint[]>([]);
+  const [pagination, setPagination] = React.useState({
+    page: 1,
+    limit: 12,
+    total: 0,
+    totalPages: 1,
+  });
+  const [summary, setSummary] = React.useState({
+    OPEN: 0,
+    SUPERVISOR_RESOLVED: 0,
+    CLOSED: 0,
+  });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -50,7 +75,7 @@ const ComplaintsPage: React.FC = () => {
   const [note, setNote] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
 
-  const fetchComplaints = React.useCallback(async () => {
+  const fetchComplaints = React.useCallback(async (targetPage = pagination.page) => {
     setLoading(true);
     setError(null);
     try {
@@ -59,10 +84,21 @@ const ComplaintsPage: React.FC = () => {
       if (departmentFilter.trim() && isAdminSupervisor) {
         params.departmentId = departmentFilter.trim();
       }
+      if (typeFilter !== "ALL") params.type = typeFilter;
+      if (assetFilter.trim()) params.assetQuery = assetFilter.trim();
+      params.paginated = "true";
+      params.page = String(targetPage);
+      params.limit = String(pagination.limit);
 
       const data = await get("/complaints", { params });
-      const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-      setComplaints(list);
+      const payload = data?.data as ComplaintsResponse;
+      setComplaints(Array.isArray(payload?.items) ? payload.items : []);
+      if (payload?.pagination) {
+        setPagination(payload.pagination);
+      }
+      if (payload?.summary) {
+        setSummary(payload.summary);
+      }
     } catch (err: any) {
       console.error("Failed to load complaints:", err);
       const msg =
@@ -71,32 +107,15 @@ const ComplaintsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, departmentFilter, isAdminSupervisor]);
+  }, [statusFilter, departmentFilter, isAdminSupervisor, typeFilter, assetFilter, pagination.page, pagination.limit]);
 
   React.useEffect(() => {
-    fetchComplaints();
-  }, [fetchComplaints]);
-
-  const filteredComplaints = React.useMemo(() => {
-    const assetQuery = assetFilter.trim().toLowerCase();
-    const deptQuery = departmentFilter.trim().toLowerCase();
-    return complaints.filter((c) => {
-      if (typeFilter !== "ALL" && c.type !== typeFilter) return false;
-      if (assetQuery) {
-        const assetId = (c.assetId || "").toString().toLowerCase();
-        if (!assetId.includes(assetQuery)) return false;
-      }
-      if (deptQuery) {
-        const deptId = (c.departmentId || "").toLowerCase();
-        if (!deptId.includes(deptQuery)) return false;
-      }
-      return true;
-    });
-  }, [complaints, assetFilter, departmentFilter, typeFilter]);
-
-  const openCount = filteredComplaints.filter((c) => c.status === "OPEN").length;
-  const resolvedCount = filteredComplaints.filter((c) => c.status === "SUPERVISOR_RESOLVED").length;
-  const closedCount = filteredComplaints.filter((c) => c.status === "CLOSED").length;
+    fetchComplaints(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const openCount = summary.OPEN;
+  const resolvedCount = summary.SUPERVISOR_RESOLVED;
+  const closedCount = summary.CLOSED;
 
   const canResolve = (c: Complaint) => isAdminSupervisor && c.status === "OPEN";
   const canClose = (c: Complaint) =>
@@ -136,7 +155,7 @@ const ComplaintsPage: React.FC = () => {
         });
       }
       closeAction();
-      await fetchComplaints();
+      await fetchComplaints(pagination.page);
     } catch (err: any) {
       console.error("Failed to update complaint:", err);
       const msg =
@@ -235,7 +254,7 @@ const ComplaintsPage: React.FC = () => {
               </select>
             )}
             <button
-              onClick={fetchComplaints}
+              onClick={() => fetchComplaints(1)}
               className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
             >
               <RefreshCcw size={16} />
@@ -266,11 +285,11 @@ const ComplaintsPage: React.FC = () => {
           <div className="panel-pad text-sm text-slate-500">Loading complaints...</div>
         ) : error ? (
           <div className="panel-pad text-sm text-red-600">{error}</div>
-        ) : filteredComplaints.length === 0 ? (
+        ) : complaints.length === 0 ? (
           <div className="panel-pad text-sm text-slate-500">No complaints found.</div>
         ) : (
           <div className="divide-y divide-slate-200">
-            {filteredComplaints.map((c) => (
+            {complaints.map((c) => (
               <div key={c._id} className="grid gap-4 p-4 sm:p-6 md:grid-cols-[1.4fr_1fr_1fr_1fr_auto]">
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
@@ -341,6 +360,29 @@ const ComplaintsPage: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+        {!loading && !error && pagination.total > 0 && (
+          <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
+            <div className="text-sm text-slate-600">
+              Page {pagination.page} of {pagination.totalPages} · {pagination.total} complaints
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => fetchComplaints(Math.max(1, pagination.page - 1))}
+                disabled={pagination.page <= 1}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => fetchComplaints(Math.min(pagination.totalPages, pagination.page + 1))}
+                disabled={pagination.page >= pagination.totalPages}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>

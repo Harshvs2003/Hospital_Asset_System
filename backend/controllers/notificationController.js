@@ -7,12 +7,39 @@ const fail = (res, message, status = 400) =>
 
 export const listNotifications = async (req, res) => {
   try {
-    const limit = Math.min(Number(req.query.limit || 50), 200);
-    const list = await Notification.find({ userId: req.user._id })
+    const hasPagination =
+      req.query.paginated === "true" ||
+      req.query.page !== undefined ||
+      req.query.limit !== undefined;
+    const page = Math.max(1, Number.parseInt(String(req.query.page || "1"), 10) || 1);
+    const limit = Math.min(200, Math.max(1, Number.parseInt(String(req.query.limit || "20"), 10) || 20));
+    const baseFilter = { userId: req.user._id };
+
+    if (!hasPagination) {
+      const list = await Notification.find(baseFilter)
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean();
+      return ok(res, list);
+    }
+
+    const total = await Notification.countDocuments(baseFilter);
+    const skip = (page - 1) * limit;
+    const items = await Notification.find(baseFilter)
       .sort({ createdAt: -1 })
+      .skip(skip)
       .limit(limit)
       .lean();
-    return ok(res, list);
+
+    return ok(res, {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    });
   } catch (err) {
     console.error("List notifications error:", err);
     return fail(res, "Failed to list notifications", 500);

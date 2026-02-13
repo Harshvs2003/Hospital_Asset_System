@@ -90,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose }) => {
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col ${widthClass} transform bg-gray-800 text-white shadow-lg transition-all duration-300 ease-in-out md:static md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col ${widthClass} transform bg-gray-800 text-white shadow-lg transition-all duration-300 ease-in-out md:sticky md:top-0 md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
       <div className="flex items-center justify-between p-4 border-b border-gray-700">
         {showLabels && (
@@ -117,7 +117,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose }) => {
         </button>
       </div>
 
-      <nav className="flex-1 p-4 space-y-3">
+      <nav className="flex-1 overflow-y-auto p-4 space-y-3">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);

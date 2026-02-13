@@ -5,6 +5,7 @@ import {
   isValidDepartmentId,
 } from "../config/departments.js";
 import { fetchDeptUsers, fetchUsersByRole, notifyUsers } from "../utils/notificationService.js";
+import { getCache, setCache, invalidateCacheByPrefix } from "../utils/queryCache.js";
 
 // Helper for date formatting
 const formatIST = (date) =>
@@ -43,6 +44,19 @@ const ensureDeptAccess = (req, asset) => {
   }
   return true;
 };
+
+const toAssetDto = (asset) => ({
+  ...asset.toObject(),
+  storeindate: formatIST(asset.storeindate),
+  installdate: formatIST(asset.installdate),
+  purchaseDate: formatIST(asset.purchaseDate),
+  lastServiceDate: formatIST(asset.lastServiceDate),
+  contractExpiryDate: formatIST(asset.contractExpiryDate),
+  createdAt: formatIST(asset.createdAt),
+  updatedAt: formatIST(asset.updatedAt),
+  departmentId: asset.departmentId,
+  departmentName: asset.departmentName,
+});
 
 // POST: Add Asset
 export const addAsset = async (req, res) => {
@@ -136,18 +150,10 @@ export const addAsset = async (req, res) => {
     }
 
     const response = {
-      ...newAsset.toObject(),
-      storeindate: formatIST(newAsset.storeindate),
-      installdate: formatIST(newAsset.installdate),
-      purchaseDate: formatIST(newAsset.purchaseDate),
-      lastServiceDate: formatIST(newAsset.lastServiceDate),
-      contractExpiryDate: formatIST(newAsset.contractExpiryDate),
-      createdAt: formatIST(newAsset.createdAt),
-      updatedAt: formatIST(newAsset.updatedAt),
-      departmentId: newAsset.departmentId,
-      departmentName: newAsset.departmentName,
+      ...toAssetDto(newAsset),
     };
 
+    invalidateCacheByPrefix("assets:list:");
     res.status(201).json(response);
   } catch (error) {
     console.error("Error saving asset:", error);
@@ -158,20 +164,281 @@ export const addAsset = async (req, res) => {
 // GET: All Assets
 export const getAllAssets = async (req, res) => {
   try {
-    const assets = await Asset.find(getDeptFilter(req));
-    const assetsWithIST = assets.map((asset) => ({
-      ...asset.toObject(),
-      storeindate: formatIST(asset.storeindate),
-      installdate: formatIST(asset.installdate),
-      purchaseDate: formatIST(asset.purchaseDate),
-      lastServiceDate: formatIST(asset.lastServiceDate),
-      contractExpiryDate: formatIST(asset.contractExpiryDate),
-      createdAt: formatIST(asset.createdAt),
-      updatedAt: formatIST(asset.updatedAt),
-      departmentId: asset.departmentId,
-      departmentName: asset.departmentName,
-    }));
-    res.status(200).json(assetsWithIST);
+    const hasPagination =
+      req.query.paginated === "true" ||
+      req.query.page !== undefined ||
+      req.query.limit !== undefined;
+
+    const q = String(req.query.q || "").trim();
+    const category = String(req.query.category || "").trim();
+    const status = String(req.query.status || "").trim();
+    const fromDate = String(req.query.fromDate || "").trim();
+    const toDate = String(req.query.toDate || "").trim();
+    const page = Math.max(1, Number.parseInt(String(req.query.page || "1"), 10) || 1);
+    const limit = Math.min(200, Math.max(1, Number.parseInt(String(req.query.limit || "20"), 10) || 20));
+
+    const deptFilter = getDeptFilter(req);
+    const filters = { ...deptFilter };
+    if (q) {
+      filters.$or = [
+        { name: { $regex: q, $options: "i" } },
+        { assetId: { $regex: q, $options: "i" } },
+        { location: { $regex: q, $options: "i" } },
+        { category: { $regex: q, $options: "i" } },
+        { subcategory: { $regex: q, $options: "i" } },
+        { status: { $regex: q, $options: "i" } },
+      ];
+    }
+    if (category && category !== "All") filters.category = category;
+    if (status && status !== "All") filters.status = status;
+    if (fromDate || toDate) {
+      filters.createdAt = {};
+      if (fromDate) filters.createdAt.$gte = new Date(fromDate);
+      if (toDate) {
+        const to = new Date(toDate);
+        to.setDate(to.getDate() + 1);
+        filters.createdAt.$lt = to;
+      }
+    }
+
+    if (!hasPagination) {
+      const assets = await Asset.find(filters).sort({ createdAt: -1 });
+      const assetsWithIST = assets.map((asset) => toAssetDto(asset));
+      return res.status(200).json(assetsWithIST);
+    }
+
+    const cacheKey = `assets:list:${JSON.stringify({
+      role: req.user?.role || "",
+      departmentId: req.user?.departmentId || "",
+      q,
+      category,
+      status,
+      fromDate,
+      toDate,
+      page,
+      limit,
+    })}`;
+    const cached = getCache(cacheKey);
+    if (cached) {
+      return res.status(200).json({ ...cached, cached: true });
+    }
+
+    const total = await Asset.countDocuments(filters);
+    const skip = (page - 1) * limit;
+    const [items, summaryAgg, byCategoryAgg, byLocationAgg, categories] = await Promise.all([
+      Asset.find(filters)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Asset.aggregate([
+        { $match: filters },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            available: {
+              $sum: {
+                $cond: [
+                  {
+                    $regexMatch: {
+                      input: { $toLower: { $ifNull: ["$status", ""] } },
+                      regex: "available",
+                    },
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            maintenance: {
+              $sum: {
+                $cond: [
+                  {
+                    $regexMatch: {
+                      input: { $toLower: { $ifNull: ["$status", ""] } },
+                      regex: "maintenance",
+                    },
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            damaged: {
+              $sum: {
+                $cond: [
+                  {
+                    $regexMatch: {
+                      input: { $toLower: { $ifNull: ["$status", ""] } },
+                      regex: "damaged|out of order",
+                    },
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            totalValue: { $sum: { $ifNull: ["$price", 0] } },
+          },
+        },
+      ]),
+      Asset.aggregate([
+        { $match: filters },
+        {
+          $group: {
+            _id: { $ifNull: ["$category", "Uncategorized"] },
+            total: { $sum: 1 },
+            available: {
+              $sum: {
+                $cond: [
+                  {
+                    $regexMatch: {
+                      input: { $toLower: { $ifNull: ["$status", ""] } },
+                      regex: "available",
+                    },
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            maintenance: {
+              $sum: {
+                $cond: [
+                  {
+                    $regexMatch: {
+                      input: { $toLower: { $ifNull: ["$status", ""] } },
+                      regex: "maintenance",
+                    },
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            damaged: {
+              $sum: {
+                $cond: [
+                  {
+                    $regexMatch: {
+                      input: { $toLower: { $ifNull: ["$status", ""] } },
+                      regex: "damaged|out of order",
+                    },
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+        { $sort: { total: -1, _id: 1 } },
+      ]),
+      Asset.aggregate([
+        { $match: filters },
+        {
+          $group: {
+            _id: {
+              $ifNull: [
+                "$location",
+                { $ifNull: ["$departmentName", "Unknown"] },
+              ],
+            },
+            total: { $sum: 1 },
+            available: {
+              $sum: {
+                $cond: [
+                  {
+                    $regexMatch: {
+                      input: { $toLower: { $ifNull: ["$status", ""] } },
+                      regex: "available",
+                    },
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            maintenance: {
+              $sum: {
+                $cond: [
+                  {
+                    $regexMatch: {
+                      input: { $toLower: { $ifNull: ["$status", ""] } },
+                      regex: "maintenance",
+                    },
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            damaged: {
+              $sum: {
+                $cond: [
+                  {
+                    $regexMatch: {
+                      input: { $toLower: { $ifNull: ["$status", ""] } },
+                      regex: "damaged|out of order",
+                    },
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+        { $sort: { total: -1, _id: 1 } },
+      ]),
+      Asset.distinct("category", {
+        ...deptFilter,
+        category: { $exists: true, $ne: null, $nin: [""] },
+      }),
+    ]);
+
+    const summary = summaryAgg[0] || {
+      total: 0,
+      available: 0,
+      maintenance: 0,
+      damaged: 0,
+      totalValue: 0,
+    };
+
+    const payload = {
+      items: items.map((asset) => toAssetDto(asset)),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+      summary: {
+        total: summary.total || 0,
+        available: summary.available || 0,
+        maintenance: summary.maintenance || 0,
+        damaged: summary.damaged || 0,
+        totalValue: summary.totalValue || 0,
+      },
+      byCategory: byCategoryAgg.map((row) => ({
+        category: row._id || "Uncategorized",
+        total: row.total || 0,
+        available: row.available || 0,
+        maintenance: row.maintenance || 0,
+        damaged: row.damaged || 0,
+      })),
+      byLocation: byLocationAgg.map((row) => ({
+        location: row._id || "Unknown",
+        total: row.total || 0,
+        available: row.available || 0,
+        maintenance: row.maintenance || 0,
+        damaged: row.damaged || 0,
+      })),
+      categories: categories.filter(Boolean).sort((a, b) => a.localeCompare(b)),
+    };
+
+    setCache(cacheKey, payload, Number(process.env.ASSETS_LIST_CACHE_TTL_MS || 30_000), 300);
+    return res.status(200).json(payload);
   } catch (error) {
     console.error("Error fetching assets:", error);
     res.status(500).json({ message: error.message });
@@ -294,6 +561,7 @@ export const updateAsset = async (req, res) => {
       return res.status(404).json({ message: "Asset not found" });
     }
     res.status(200).json(updatedAsset);
+    invalidateCacheByPrefix("assets:list:");
   } catch (error) {
     console.error("Error updating asset:", error);
     res.status(500).json({ message: error.message });
@@ -313,6 +581,7 @@ export const deleteAsset = async (req, res) => {
     res.status(200).json({
       message: `${deletedAsset.name} (${deletedAsset.assetId}) deleted successfully`,
     });
+    invalidateCacheByPrefix("assets:list:");
   } catch (error) {
     console.error("Error deleting asset:", error);
     res.status(500).json({ message: error.message });
