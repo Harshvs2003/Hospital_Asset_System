@@ -7,6 +7,7 @@ import {
   verifyRefreshToken,
 } from "../utils/tokenUtils.js";
 import { isValidDepartmentId } from "../config/departments.js";
+import { getDepartmentNameById } from "../config/departments.js";
 import { sendEmail } from "../utils/emailSender.js";
 import {
   verificationEmailTemplate,
@@ -531,5 +532,22 @@ export const me = async (req, res) => {
     role: req.user.role,
     name: req.user.name || undefined,
     email: req.user.email || undefined,
+  });
+};
+
+export const profile = async (req, res) => {
+  if (!req.user) return res.status(401).json({ message: "Not authenticated" });
+
+  const departmentId = req.user.departmentId || null;
+  const departmentName = departmentId ? getDepartmentNameById(departmentId) : null;
+
+  return res.json({
+    id: req.user._id,
+    name: req.user.name,
+    email: req.user.email,
+    role: req.user.role,
+    departmentId,
+    departmentName,
+    joinedAt: req.user.createdAt,
   });
 };

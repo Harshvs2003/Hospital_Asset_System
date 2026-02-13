@@ -80,6 +80,16 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose }) => {
 
   const showLabels = isOpen || mobileOpen;
   const widthClass = isOpen ? "md:w-56" : "md:w-20";
+  const roleLabel =
+    user?.role === "DEPARTMENT_USER"
+      ? "Department"
+      : user?.role === "ADMIN"
+        ? "Admin"
+        : user?.role === "SUPERVISOR"
+          ? "Supervisor"
+          : user?.role === "VIEWER"
+            ? "Viewer"
+            : "User";
 
   return (
     <>
@@ -154,19 +164,36 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose }) => {
       </nav>
 
       <div className="border-t border-gray-700 p-4 space-y-3">
-        {/* User Info */}
-        {user && showLabels && (
-          <div className="bg-gray-700 rounded-lg p-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center shrink-0">
-                <User size={16} />
+        {user && (
+          <Link
+            to="/profile"
+            onClick={() => mobileOpen && onClose?.()}
+            className={`group relative block rounded-lg transition ${showLabels ? "bg-gray-700 p-3 hover:bg-gray-600" : "p-0"}`}
+            title={!showLabels ? "Profile" : ""}
+          >
+            <div className={`flex items-center ${showLabels ? "gap-2" : "justify-center"}`}>
+              <div className={`bg-blue-500 rounded-full flex items-center justify-center shrink-0 ${showLabels ? "w-8 h-8" : "w-10 h-10"}`}>
+                <User size={showLabels ? 16 : 18} />
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium truncate">{user.name}</p>
-                <p className="text-xs text-gray-400 truncate">{user.email}</p>
-              </div>
+              {showLabels && (
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{user.name}</p>
+                  <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                </div>
+              )}
             </div>
-          </div>
+
+            <div
+              className={`pointer-events-none absolute z-50 hidden w-56 rounded-lg border border-gray-600 bg-gray-900 p-2 text-xs text-gray-200 shadow-lg group-hover:block md:block md:opacity-0 md:transition md:group-hover:opacity-100 ${
+                showLabels
+                  ? "bottom-full left-1/2 mb-2 -translate-x-1/2"
+                  : "left-full top-1/2 ml-2 -translate-y-1/2"
+              }`}
+            >
+              <p className="truncate font-semibold text-white">{user.name}</p>
+              <p className="mt-0.5 truncate text-gray-300">{roleLabel}</p>
+            </div>
+          </Link>
         )}
 
         <button

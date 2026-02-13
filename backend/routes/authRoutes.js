@@ -10,6 +10,7 @@ import {
   resendVerification,
   forgotPassword,
   resetPassword,
+  profile,
 } from "../controllers/authController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -24,6 +25,7 @@ router.post("/reset-password", resetPassword);
 router.get("/refresh", refreshToken);    // client calls this to rotate and obtain new access token
 router.post("/logout", logout);
 router.get("/me", protect, me);
+router.get("/profile", protect, profile);
 
 export default router;
 

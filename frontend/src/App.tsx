@@ -16,6 +16,7 @@ import Register from './pages/Register'
 import VerifyEmail from './pages/VerifyEmail'
 import ForgotPassword from './pages/ForgotPassword'
 import Notifications from './pages/Notifications'
+import Profile from './pages/Profile'
 import { useAuth } from './context/AuthContext'
 import AuthBoot from './components/AuthBoot'
 import './App.css'
@@ -136,6 +137,7 @@ function App() {
           <Route path="/qr-gen" element={<ProtectedRoute><QRGen /></ProtectedRoute>} />
           <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
